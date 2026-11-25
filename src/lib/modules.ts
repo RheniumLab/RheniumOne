@@ -63,7 +63,7 @@ export const MODULES: ModuleDef[] = [
   { no: 18, key: "custody", name: "Accounts & cash custody", area: "Money", href: "/accounts", ready: true },
   { no: 19, key: "claims", name: "Expense claims", area: "Money", href: "/claims", ready: true },
   { no: 20, key: "approvals", name: "Approvals", area: "Controls", href: "/approvals", ready: true },
-  { no: 21, key: "audit", name: "Audit log", area: "Controls", href: "/audit", ready: true },
+  { no: 21, key: "audit", name: "Logs", area: "Controls", href: "/audit", ready: true },
   { no: 22, key: "reports", name: "Reports", area: "Reports", href: "/reports", ready: true },
   { no: 23, key: "meetings", name: "Meetings & MOM", area: "Projects", href: "/meetings", ready: true },
 ];

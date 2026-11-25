@@ -76,6 +76,16 @@ export function defaultRoles(): Role[] {
       perms: { ...everyoneClaims, projects: work(), documents: work(), ideas: work() },
     },
     {
+      // View and download GST records only, for filing GST returns (non-GST data stays hidden).
+      id: "auditor",
+      name: "Auditor",
+      nonGst: false,
+      perms: {
+        invoices: viewOnly(), tds: viewOnly(), cashflow: viewOnly(), purchases: viewOnly(),
+        clients: viewOnly(), vendors: viewOnly(), reports: viewOnly(), documents: viewOnly(),
+      },
+    },
+    {
       id: "store",
       name: "Store",
       nonGst: false,

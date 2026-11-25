@@ -16,7 +16,7 @@ export default function AuditPage() {
   const filtered = rows.filter((r) => !q || JSON.stringify(r).toLowerCase().includes(q.toLowerCase()));
   return (
     <div>
-      <PageHeader title="Audit log" subtitle="Every create, edit, delete, approval and login" />
+      <PageHeader title="Logs" subtitle="Every create, edit, delete, approval and login" />
       <div className="card">
         <div className="border-b border-border p-3"><input className="input" placeholder="Filter…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         {error && <div className="p-3"><ErrorBox>{error}</ErrorBox></div>}

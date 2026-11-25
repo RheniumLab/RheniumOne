@@ -13,7 +13,7 @@ The company's in-house ERP: cash flow, invoicing, projects, sales, BOMs, purchas
 | 6–8 | Projects, documents, product ideas | Money view (quoted, invoiced, received, dues, direct cost, profit), tasks board/list, comments, repos, document folders with versions, idea → requirement → project |
 | 9–14 | BOMs, sourcing, POs/GRN, inventory, assets, challans | Multi-level EBOM/MBOM with revisions, vendor quotes, POs from BOM, goods receipt into stock, vendor bills, stock by location, required-assets priority list with funds check, challans with returns and e-way bill details |
 | 15–19 | Invoices, payments & TDS, cash flow, accounts, claims | Numbered PREFIX/YYMMDD/001 (daily running number; e.g. RN/261125/001, RN/NG/261125/001), CGST/SGST/IGST, branded PDF, WhatsApp/email share, payments with TDS, ageing, 26AS tracking, cash wallets with confirmed handovers |
-| 20–22 | Approvals, audit log, reports | Rule-based approvals (PO amount, claims, quotation discount %, invoice cancel, entry delete), full audit log, 14 reports with filters and Excel/PDF export |
+| 20–22 | Approvals, logs, reports | Rule-based approvals (PO amount, claims, quotation discount %, invoice cancel, entry delete), full change log, 14 reports with filters and Excel/PDF export |
 | 23 | Meetings & MOM | Monthly review auto-created with agenda and figures snapshot, MOM PDF versions, action items in project tasks |
 
 Also in place: admin-defined roles with view/create/edit/delete/approve per module, a separate non-GST permission (enforced in Firestore rules), auto codes and FY-wise document numbers, starting categories, first-admin setup, and offline entry on phones.

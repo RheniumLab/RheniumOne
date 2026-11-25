@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection, useDoc } from "@/lib/hooks";
 import { assignNumber, getCompany, invoiceSeries, requestApproval, useCompany } from "@/lib/business";
 import { fmtDate, getDocOnce, inr, updateDoc } from "@/lib/data";
-import { commercialDocHtml } from "@/lib/doc-html";
+import { commercialDocHtml, docName } from "@/lib/doc-html";
 import { makePdf, openDrive, shareDoc } from "@/lib/files";
 import { addDocRecord, clientFolder } from "@/lib/docs";
 import { invoiceDue } from "@/lib/money";
@@ -110,7 +110,7 @@ export default function InvoicePage() {
     run(via, async () => {
       const contacts = (client?.contacts ?? []) as Record<string, string>[];
       const primary = contacts.find((c) => c.roleTag === "Accounts") ?? contacts.find((c) => c.primary) ?? contacts[0];
-      await shareDoc(String(inv.pdfDriveId), via, `Invoice ${inv.number} from ${company.name ?? "Rhenium"} — ${inr(Number(inv.total))}, due ${fmtDate(inv.dueDate)}`, { phone: primary?.whatsapp || primary?.phone, email: primary?.email });
+      await shareDoc(String(inv.pdfDriveId), via, `Invoice ${inv.number} from ${docName(company)} — ${inr(Number(inv.total))}, due ${fmtDate(inv.dueDate)}`, { phone: primary?.whatsapp || primary?.phone, email: primary?.email });
     });
 
   const balance = invoiceDue(inv);

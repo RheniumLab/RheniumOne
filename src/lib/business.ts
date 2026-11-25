@@ -21,8 +21,28 @@ export function useCompany() {
   return (data ?? {}) as CompanySettings;
 }
 
+let logoCache: string | undefined;
+/** The logo as a data URL, embedded in generated documents. */
+async function logoDataUrl() {
+  if (logoCache !== undefined || typeof window === "undefined") return logoCache;
+  try {
+    const blob = await (await fetch("/brand/logo.png")).blob();
+    logoCache = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.onerror = () => rej(r.error);
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    logoCache = "";
+  }
+  return logoCache;
+}
+
+/** Company settings for documents, with the logo embedded. */
 export async function getCompany(): Promise<CompanySettings> {
-  return ((await getDoc(doc(db(), "settings", "company"))).data() ?? {}) as CompanySettings;
+  const c = ((await getDoc(doc(db(), "settings", "company"))).data() ?? {}) as CompanySettings;
+  return { ...c, logoDataUrl: c.logoDataUrl || (await logoDataUrl()) };
 }
 
 // ---- Numbering -------------------------------------------------------

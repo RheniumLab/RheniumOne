@@ -245,7 +245,7 @@ function Company() {
       </div>
       <form className="card grid gap-3 p-4 sm:grid-cols-2" onSubmit={async (e) => { e.preventDefault(); await setDoc(doc(db(), "settings", "company"), v, { merge: true }); setSaved(true); }}>
         <h2 className="text-sm font-semibold sm:col-span-2">Company details (shown on invoices, quotations, POs)</h2>
-        {f("name", "Company name")}
+        {f("name", "Company name (printed on invoices & documents)")}
         {f("state", "State (for CGST/SGST vs IGST)")}
         {f("address", "Address", "textarea", true)}
         {f("gstin", "GSTIN")}

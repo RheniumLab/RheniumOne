@@ -8,6 +8,10 @@ import { computeTotals, inWords, type Adjustments, type Line } from "./tax";
 
 export interface Company {
   name?: string;
+  /** Optional override for the name on documents (normally the company name is used). */
+  legalName?: string;
+  /** Logo embedded in the document (data URL), so Google's PDF conversion doesn't need to fetch it. */
+  logoDataUrl?: string;
   address?: string;
   gstin?: string;
   pan?: string;
@@ -23,23 +27,27 @@ export interface Company {
 
 const esc = (v: unknown) =>
   String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!).replace(/\n/g, "<br>");
+export const DEFAULT_LEGAL_NAME = "Rhenium Innovation Lab LLP";
+/** Name printed on documents: the Company name from Settings (falls back to the registered name). */
+export const docName = (c: Company) => c.legalName?.trim() || c.name?.trim() || DEFAULT_LEGAL_NAME;
+
 const money = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function shell(company: Company, title: string, body: string) {
   const brand = company.brandColor || "#FF6A00";
   const charcoal = "#18212B";
-  // Google converts the HTML on its servers, so the logo must be on a public URL (not localhost).
+  // Embedded logo (works everywhere); fall back to the public URL on the live site.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const logo = origin && !/localhost|127\.0\.0\.1/.test(origin) ? `${origin}/brand/logo.png` : "";
+  const logo = company.logoDataUrl || (origin && !/localhost|127\.0\.0\.1/.test(origin) ? `${origin}/brand/logo.png` : "");
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#16191d;margin:24px}
-h1{font-size:16pt;margin:0;color:${charcoal}} h2{font-size:12pt;margin:14px 0 6px;color:${brand}}
-table{border-collapse:collapse;width:100%} td,th{border:1px solid #cfd5dd;padding:5px 6px;vertical-align:top}
+body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#16191d;margin:16px}
+h1{font-size:16pt;margin:0;color:${charcoal}} h2{font-size:12pt;margin:10px 0 4px;color:${brand}}
+table{border-collapse:collapse;width:100%} td,th{border:1px solid #cfd5dd;padding:4px 6px;vertical-align:top}
 th{background:#E9EDF0;color:${charcoal};text-align:left;font-size:9.5pt} .r{text-align:right} .muted{color:#5f6873;font-size:9pt}
 .noborder td{border:none;padding:2px 0} .tot td{border:none;padding:2px 6px}
 </style></head><body>
-<table class="noborder"><tr><td>${logo ? `<img src="${logo}" alt="Rhenium" style="height:56px;margin-bottom:4px"><br>` : ""}<h1>${esc(company.name || "Rhenium")}</h1>
+<table class="noborder"><tr><td>${logo ? `<img src="${logo}" alt="Rhenium" width="96" style="width:96px;height:auto;margin-bottom:4px"><br>` : ""}<h1>${esc(docName(company))}</h1>
 <div class="muted">${esc(company.address)}</div>
 <div class="muted">${[company.gstin && `GSTIN: ${esc(company.gstin)}`, company.pan && `PAN: ${esc(company.pan)}`, company.phone && esc(company.phone), company.email && esc(company.email)].filter(Boolean).join(" · ")}</div>
 </td><td class="r"><h1 style="color:${brand}">${esc(title)}</h1></td></tr></table>
@@ -60,6 +68,21 @@ function partyBlock(label: string, p: Party) {
   return `<b>${esc(label)}</b><br>${esc(p.name)}<br><span class="muted">${esc(p.address)}${p.state ? `<br>State: ${esc(p.state)}` : ""}${p.gstin ? `<br>GSTIN: ${esc(p.gstin)}` : ""}${p.contact ? `<br>${esc(p.contact)}` : ""}</span>`;
 }
 
+/** Bank details, one item per line. */
+function bankBlock(c: Company) {
+  const rows: [string, unknown][] = [
+    ["Account name", docName(c)],
+    ["Bank", c.bankName],
+    ["Account number", c.bankAccount],
+    ["IFSC code", c.ifsc],
+    ["UPI ID", c.upi],
+  ];
+  return `<h2>Bank details</h2><table class="noborder">${rows
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<tr><td class="muted" width="110" style="width:110px">${esc(k)}</td><td><b>${esc(v)}</b></td></tr>`)
+    .join("")}</table>`;
+}
+
 export function commercialDocHtml(o: {
   company: Company;
   title: string;
@@ -76,6 +99,12 @@ export function commercialDocHtml(o: {
   extra?: string;
 }) {
   const t = computeTotals(o.lines, o.adj, { gst: o.gst, intraState: o.intraState });
+  // Fixed column widths (%) so descriptions get the room and amounts never wrap.
+  const cols: [string, number, string][] = [
+    ["#", 4, ""], ["Description", o.gst ? 28 : 42, ""], ...(o.gst ? ([["HSN/SAC", 12, ""]] as [string, number, string][]) : []),
+    ["Qty", 9, "r"], ["Rate", 14, "r"], ["Discount", 11, "r"], ...(o.gst ? ([["GST", 8, "r"]] as [string, number, string][]) : []), ["Amount", 14, "r"],
+  ];
+  const head = cols.map(([h, w, c]) => `<th width="${w}%" style="width:${w}%"${c ? ` class="${c}"` : ""}>${h}</th>`).join("");
   const rows = o.lines
     .map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.description)}</td>${o.gst ? `<td>${esc(l.hsn)}</td>` : ""}<td class="r">${esc(l.qty)} ${esc(l.unit)}</td><td class="r">${money(Number(l.rate) || 0)}</td><td class="r">${t.lines[i].discount ? money(t.lines[i].discount) : ""}</td>${o.gst ? `<td class="r">${esc(l.taxRate ?? 0)}%</td>` : ""}<td class="r">${money(t.lines[i].taxable)}</td></tr>`)
     .join("");
@@ -90,19 +119,22 @@ export function commercialDocHtml(o: {
   if (t.roundOff) tot.push(["Round off", t.roundOff]);
   tot.push(["Total", t.total]);
   if (t.advance) tot.push(["Less: advance received", -t.advance], ["Amount due", t.due]);
+  const totals = `<table class="tot">${tot.map(([k, v], i) => (i === tot.length - 1 ? `<tr><td style="border-top:1px solid #cfd5dd"><b>${esc(k)}</b></td><td class="r" style="border-top:1px solid #cfd5dd"><b>₹ ${money(v)}</b></td></tr>` : `<tr><td>${esc(k)}</td><td class="r">${money(v)}</td></tr>`)).join("")}</table>`;
 
   const body = `
-<table class="noborder"><tr><td style="width:55%">${partyBlock(o.partyLabel ?? "Bill to", o.party)}</td>
-<td><table>${o.meta.map(([k, v]) => `<tr><td class="muted" style="width:45%">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table></td></tr></table>
+<table class="noborder"><tr><td width="55%" style="width:55%">${partyBlock(o.partyLabel ?? "Bill to", o.party)}</td>
+<td><table>${o.meta.map(([k, v]) => `<tr><td class="muted" width="45%" style="width:45%">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table></td></tr></table>
 ${o.extra ?? ""}
 <h2>Items</h2>
-<table><tr><th>#</th><th>Description</th>${o.gst ? "<th>HSN/SAC</th>" : ""}<th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th>${o.gst ? '<th class="r">GST</th>' : ""}<th class="r">Amount</th></tr>${rows}</table>
-<table class="tot" style="width:45%;margin-left:55%;margin-top:6px">${tot.map(([k, v], i) => `<tr><td>${i === tot.length - 1 ? `<b>${esc(k)}</b>` : esc(k)}</td><td class="r">${i === tot.length - 1 ? `<b>₹ ${money(v)}</b>` : money(v)}</td></tr>`).join("")}</table>
-<p class="muted">${esc(inWords(t.advance ? t.due : t.total))}</p>
-${o.notes ? `<h2>Notes</h2><p>${esc(o.notes)}</p>` : ""}
-${o.terms ? `<h2>Terms</h2><p>${esc(o.terms)}</p>` : ""}
-${o.showBank && o.company.bankAccount ? `<h2>Bank details</h2><p>${esc(o.company.name)}<br>${esc(o.company.bankName)} · A/c ${esc(o.company.bankAccount)} · IFSC ${esc(o.company.ifsc)}${o.company.upi ? `<br>UPI: ${esc(o.company.upi)}` : ""}</p>` : ""}
-<p style="margin-top:40px" class="r">For ${esc(o.company.name)}<br><br><br>Authorised signatory</p>`;
+<table><tr>${head}</tr>${rows}</table>
+<table class="noborder" style="margin-top:8px"><tr>
+<td width="55%" style="width:55%;padding-right:16px"><span class="muted">Amount in words</span><br>${esc(inWords(t.advance ? t.due : t.total))}
+${o.notes ? `<br><br><span class="muted">Notes</span><br>${esc(o.notes)}` : ""}
+${o.terms ? `<br><br><span class="muted">Terms</span><br>${esc(o.terms)}` : ""}</td>
+<td width="45%" style="width:45%">${totals}</td></tr></table>
+<table class="noborder" style="margin-top:10px"><tr>
+<td width="60%" style="width:60%">${o.showBank && o.company.bankAccount ? bankBlock(o.company) : ""}</td>
+<td class="r" style="vertical-align:bottom">For <b>${esc(docName(o.company))}</b><br><br><br><br>Authorised signatory</td></tr></table>`;
   return shell(o.company, o.title, body);
 }
 
