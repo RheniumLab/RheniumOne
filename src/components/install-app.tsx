@@ -30,21 +30,28 @@ export function InstallApp() {
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     if (isStandalone() || !isPhoneOrTablet()) return;
     setIos(isIos());
     setShow(true);
+    const w = window as Window & { __r1Install?: InstallPromptEvent };
+    // The event may already have fired before this component mounted (caught in layout.tsx).
+    if (w.__r1Install) setPrompt(w.__r1Install);
+    const onReady = () => w.__r1Install && setPrompt(w.__r1Install);
     const onPrompt = (e: Event) => {
       e.preventDefault();
+      w.__r1Install = e as InstallPromptEvent;
       setPrompt(e as InstallPromptEvent);
     };
     const onInstalled = () => {
+      w.__r1Install = undefined;
       setShow(false);
       setHelp(false);
     };
+    window.addEventListener("r1-installable", onReady);
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
+      window.removeEventListener("r1-installable", onReady);
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
@@ -56,6 +63,8 @@ export function InstallApp() {
     if (prompt) {
       await prompt.prompt();
       const { outcome } = await prompt.userChoice;
+      // The browser's prompt can only be used once.
+      (window as Window & { __r1Install?: unknown }).__r1Install = undefined;
       setPrompt(null);
       if (outcome === "accepted") setShow(false);
       return;
@@ -65,8 +74,12 @@ export function InstallApp() {
 
   return (
     <>
-      <button className="btn-primary !px-2.5 !py-1.5 text-xs" onClick={install} title="Install Rhenium One on this phone">
-        <Download size={14} /> Install app
+      <button
+        className="inline-flex items-center gap-1 rounded-md bg-brand px-2 py-1 text-[11px] font-semibold leading-none text-white hover:bg-brand-2"
+        onClick={install}
+        title="Install Rhenium One on this phone"
+      >
+        <Download size={12} /> Install
       </button>
       {help && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center" onClick={() => setHelp(false)}>
@@ -84,6 +97,7 @@ export function InstallApp() {
                 </div>
                 <button onClick={() => setHelp(false)} className="text-muted" aria-label="Close"><X size={18} /></button>
               </div>
+              {!ios && <p className="text-xs text-muted">Your browser didn’t offer a one-tap install. You can still add it in two taps:</p>}
               {ios ? (
                 <ol className="space-y-3 text-sm">
                   <li className="flex items-center gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">1</span><span>Tap the <b>Share</b> button <Share size={15} className="inline text-brand" /> in Safari’s toolbar</span></li>
