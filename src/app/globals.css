@@ -81,3 +81,10 @@ body {
 .table tbody tr:hover {
   @apply bg-surface-2;
 }
+
+@media print {
+  aside, header, .no-print, button { display: none !important; }
+  body { background: #fff; color: #000; }
+  main { max-width: none !important; padding: 0 !important; }
+  .card { border-color: #ccc; break-inside: avoid; }
+}

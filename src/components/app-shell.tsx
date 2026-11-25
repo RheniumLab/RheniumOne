@@ -8,6 +8,9 @@ import { useAuth } from "@/lib/auth-context";
 import { AREAS, MODULES } from "@/lib/modules";
 import { firebaseConfigured } from "@/lib/firebase";
 import { Spinner } from "./ui";
+import { where } from "firebase/firestore";
+import { useCollection } from "@/lib/hooks";
+import { flushOutbox, pendingUploads } from "@/lib/files";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { loading, user, profile, role, can, isAdmin, logout } = useAuth();
@@ -21,6 +24,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [loading, user, router]);
 
   useEffect(() => setOpen(false), [path]);
+
+  // Pending items for badges: approvals waiting for my role, handovers waiting for me.
+  const approvals = useCollection("approvals", isAdmin ? [where("status", "==", "pending")] : [where("status", "==", "pending"), where("approverRole", "==", profile?.roleId ?? "-")], { includeDeleted: true, enabled: Boolean(profile?.active) }, [isAdmin, profile?.roleId]);
+  const handovers = useCollection("transfers", [where("toHolder", "==", user?.uid ?? "-"), where("status", "==", "pending")], { enabled: Boolean(profile?.active) }, [user?.uid]);
+  const badges: Record<string, number> = { "/approvals": approvals.rows.length, "/accounts": handovers.rows.length };
+
+  // Upload bill photos / files that were captured offline.
+  const [queued, setQueued] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    const run = () => flushOutbox().finally(() => pendingUploads().then(setQueued));
+    run();
+    window.addEventListener("online", run);
+    const t = setInterval(run, 60_000);
+    return () => { window.removeEventListener("online", run); clearInterval(t); };
+  }, [user]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -58,7 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Link href="/" className={`rounded-md px-2 py-1.5 ${isActive("/") ? "bg-brand/10 font-medium text-brand" : "hover:bg-surface-2"}`}>
         Dashboard
       </Link>
-      {AREAS.filter((a) => a !== "Reports").map((area) => {
+      {AREAS.map((area) => {
         const items = MODULES.filter((m) => m.area === area && can(m.key, "view"));
         if (!items.length) return null;
         return (
@@ -71,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={`flex items-center justify-between rounded-md px-2 py-1.5 ${isActive(m.href) ? "bg-brand/10 font-medium text-brand" : "hover:bg-surface-2"}`}
               >
                 <span>{m.name}</span>
-                {!m.ready && <span className="text-[10px] text-muted">soon</span>}
+                {badges[m.href] ? <span className="rounded-full bg-danger px-1.5 text-[10px] font-semibold text-white">{badges[m.href]}</span> : null}
               </Link>
             ))}
           </div>
@@ -111,6 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
           <span className="font-semibold lg:hidden">Rhenium One</span>
           <div className="flex-1" />
+          {queued > 0 && <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs text-brand">{queued} file{queued > 1 ? "s" : ""} to upload</span>}
           {!online && (
             <span className="flex items-center gap-1 rounded-full bg-warn/15 px-2 py-0.5 text-xs text-warn">
               <WifiOff size={12} /> Offline — entries will sync

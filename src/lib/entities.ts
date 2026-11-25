@@ -177,6 +177,37 @@ export const ENTITIES: Record<string, EntityDef> = {
     ],
   },
 
+  proposals: {
+    module: "proposals",
+    collection: "proposals",
+    singular: "Proposal",
+    plural: "Proposals",
+    basePath: "/proposals",
+    title: (d) => `${d.title ?? ""} · R${d.rev ?? 0}`,
+    code: { counter: "proposal", field: "code", format: (n) => `PR-${pad(n)}` },
+    statusField: "status",
+    fields: [
+      { name: "title", label: "Title", type: "text", required: true },
+      { name: "clientId", label: "Client", type: "ref", ref: { collection: "clients", label: "displayName" }, required: true },
+      { name: "requirementId", label: "Requirement", type: "ref", ref: { collection: "requirements", label: "title" } },
+      { name: "status", label: "Status", type: "select", options: ["Draft", "Sent", "Accepted", "Rejected"], default: "Draft" },
+      { name: "rev", label: "Revision (R)", type: "number", default: 0 },
+      { name: "validUntil", label: "Valid until", type: "date" },
+      { name: "scope", label: "Scope", type: "textarea", wide: true },
+      { name: "approach", label: "Technical approach", type: "textarea", wide: true },
+      { name: "deliverables", label: "Deliverables", type: "textarea", wide: true },
+      { name: "timeline", label: "Timeline", type: "textarea", wide: true },
+      { name: "terms", label: "Terms", type: "textarea", wide: true },
+    ],
+    columns: [
+      { field: "code", label: "Code" },
+      { field: "title", label: "Title" },
+      { field: "rev", label: "Rev" },
+      { field: "validUntil", label: "Valid until", kind: "date" },
+      { field: "status", label: "Status", kind: "status" },
+    ],
+  },
+
   ideas: {
     module: "ideas",
     collection: "ideas",
@@ -220,10 +251,9 @@ export const ENTITIES: Record<string, EntityDef> = {
       { name: "hsn", label: "HSN", type: "text" },
       { name: "rate", label: "Standard rate", type: "money" },
       { name: "reorderLevel", label: "Reorder level", type: "number" },
-      { name: "stock", label: "Stock by location", type: "list", wide: true, fields: [
-        { name: "location", label: "Location", type: "select", options: ["Office", "Store", "Site"] },
+      { name: "reservations", label: "Reserved for projects", type: "list", wide: true, help: "Stock levels come from movements (GRN, issue, challan, scrap) on the Inventory page.", fields: [
+        { name: "projectId", label: "Project", type: "ref", ref: { collection: "projects", label: "name", gstAware: true } },
         { name: "qty", label: "Qty", type: "number" },
-        { name: "reservedProject", label: "Reserved for project", type: "text" },
       ] },
     ],
     columns: [

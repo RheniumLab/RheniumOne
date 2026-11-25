@@ -7,6 +7,8 @@ import {
   runTransaction,
   serverTimestamp,
   writeBatch,
+  FieldValue,
+  Timestamp,
   type DocumentData,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
@@ -19,9 +21,21 @@ function who() {
   return { uid: u.uid, name: u.displayName || u.email || u.uid };
 }
 
-/** Removes undefined values (Firestore rejects them). */
-export function clean<T extends object>(o: T): T {
-  return JSON.parse(JSON.stringify(o, (_k, v) => (v === undefined ? null : v)));
+/**
+ * Replaces undefined with null (Firestore rejects undefined). Firestore
+ * sentinels (serverTimestamp, arrayUnion, increment) are kept as-is, or
+ * replaced by a label when `forLog` is set (for the audit log).
+ */
+export function clean<T>(o: T, forLog = false): T {
+  const walk = (v: unknown): unknown => {
+    if (v === undefined) return null;
+    if (v instanceof FieldValue) return forLog ? "(computed)" : v;
+    if (v instanceof Date || v instanceof Timestamp) return v;
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return walk(o) as T;
 }
 
 function auditEntry(action: string, col: string, id: string, before: unknown, after: unknown) {
@@ -72,12 +86,12 @@ export async function createDoc(col: string, data: Record<string, unknown>, code
       tx.set(cref, { seq });
       const full = { ...base, [code.field]: code.format(seq) };
       tx.set(ref, full);
-      tx.set(doc(collection(db(), "auditLog")), auditEntry("create", col, ref.id, null, { ...clean(data), [code.field]: code.format(seq) }));
+      tx.set(doc(collection(db(), "auditLog")), auditEntry("create", col, ref.id, null, { ...clean(data, true), [code.field]: code.format(seq) }));
     });
   } else {
     const b = writeBatch(db());
     b.set(ref, base);
-    b.set(doc(collection(db(), "auditLog")), auditEntry("create", col, ref.id, null, clean(data)));
+    b.set(doc(collection(db(), "auditLog")), auditEntry("create", col, ref.id, null, clean(data, true)));
     // Don't await the server ack: offline writes resolve when synced.
     void b.commit();
   }
@@ -98,7 +112,7 @@ export async function updateDoc(col: string, id: string, changes: Record<string,
   const oldValues = prev ? Object.fromEntries(Object.keys(c).map((k) => [k, prev?.[k] ?? null])) : null;
   const b = writeBatch(db());
   b.update(ref, { ...c, updatedAt: serverTimestamp(), updatedBy: who().uid });
-  b.set(doc(collection(db(), "auditLog")), auditEntry("edit", col, id, clean(oldValues ?? {}), c));
+  b.set(doc(collection(db(), "auditLog")), auditEntry("edit", col, id, clean(oldValues ?? {}, true), clean(changes, true)));
   void b.commit();
 }
 

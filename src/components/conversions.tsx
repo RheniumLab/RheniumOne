@@ -3,13 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { where } from "firebase/firestore";
+import { arrayUnion, collection as fsCollection, getDocs, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
-import { createDoc, getDocOnce, updateDoc } from "@/lib/data";
+import { createDoc, fmtDate, getDocOnce, inr, updateDoc } from "@/lib/data";
+import { invoiceDue } from "@/lib/money";
+import type { Snapshot } from "@/lib/snapshot";
+import { DocsPanel } from "./docs-panel";
 import { ENTITIES } from "@/lib/entities";
-import { Badge, GstBadge } from "./ui";
+import { getCompany } from "@/lib/business";
+import { sectionsDocHtml } from "@/lib/doc-html";
+import { makePdf, openDrive, shareDoc } from "@/lib/files";
+import { addDocRecord, clientFolder, projectFolder } from "@/lib/docs";
+import { Badge, GstBadge, Stat } from "./ui";
 
 type D = Record<string, unknown>;
 
@@ -77,13 +85,99 @@ export function ConversionActions({ collection, id, data }: { collection: string
       </button>
     );
   }
-  return null;
+
+  const out: React.ReactNode[] = [];
+  // Requirement → proposal / quotation (§5).
+  if (collection === "requirements" && data.kind !== "Internal" && data.clientId) {
+    if (can("proposals", "create"))
+      out.push(
+        <button key="prop" className="btn" disabled={busy} onClick={() => run(async () => {
+          const pid = await createDoc("proposals", {
+            title: data.title, clientId: data.clientId, requirementId: id, status: "Draft", rev: 0,
+            scope: [data.description, data.specifications].filter(Boolean).join("\n\n"), approach: "", deliverables: data.quantities ? `Quantities: ${data.quantities}` : "", timeline: data.targetDate ? `Target date: ${data.targetDate}` : "", terms: "",
+          }, ENTITIES.proposals.code);
+          if (data.status === "New" || data.status === "Under study") await updateDoc("requirements", id, { status: "Proposal sent" }, data);
+          return `/proposals/${pid}`;
+        })}>Create proposal <ArrowRight size={14} /></button>,
+      );
+    if (can("quotations", "create")) out.push(<Link key="q" className="btn" href={`/quotations/new?requirementId=${id}`}>Create quotation <ArrowRight size={14} /></Link>);
+  }
+  if (collection === "proposals") {
+    if (can("proposals", "edit"))
+      out.push(
+        <button key="rev" className="btn" disabled={busy} onClick={() => run(async () => {
+          if (!confirm(`Start revision R${Number(data.rev ?? 0) + 1}? R${data.rev ?? 0} is kept in the history.`)) throw new Error("Cancelled");
+          const snapshot = Object.fromEntries(["title", "scope", "approach", "deliverables", "timeline", "terms", "validUntil", "status"].map((k) => [k, data[k] ?? null]));
+          await updateDoc("proposals", id, { rev: Number(data.rev ?? 0) + 1, status: "Draft", revisions: arrayUnion({ rev: data.rev ?? 0, at: new Date().toISOString(), ...snapshot }) }, data);
+          return `/proposals/${id}`;
+        })}>New revision</button>,
+      );
+    if (can("proposals", "edit"))
+      out.push(
+        <button key="pdf" className="btn" disabled={busy} onClick={() => run(async () => {
+          const company = await getCompany();
+          const client = await getDocOnce("clients", String(data.clientId));
+          const html = sectionsDocHtml({
+            company, title: "Technical & Commercial Proposal",
+            meta: [["Proposal", `${data.code} R${data.rev ?? 0}`], ["Client", client?.legalName], ["Subject", data.title], ["Date", new Date().toLocaleDateString("en-IN")], ["Valid until", data.validUntil ?? ""]],
+            sections: [["Scope", String(data.scope ?? "")], ["Technical approach", String(data.approach ?? "")], ["Deliverables", String(data.deliverables ?? "")], ["Timeline", String(data.timeline ?? "")], ["Terms", String(data.terms ?? "")]],
+          });
+          const name = `${data.code} R${data.rev ?? 0} ${data.title}`;
+          const { driveId, fileId } = await makePdf(html, name, { folder: `${clientFolder(client)}/Proposals`, linked: { col: "proposals", id } });
+          await updateDoc("proposals", id, { pdfs: arrayUnion({ rev: data.rev ?? 0, driveId, fileId, at: new Date().toISOString() }) });
+          await addDocRecord({ name: `${name}.pdf`, folder: "Proposals", clientId: String(data.clientId), linked: { col: "proposals", id }, fileId, driveId, mime: "application/pdf" });
+          await openDrive(driveId);
+          return `/proposals/${id}`;
+        })}>Export PDF</button>,
+      );
+    for (const p of ((data.pdfs ?? []) as { rev: number; driveId: string }[]).slice(-1))
+      out.push(<button key="lastpdf" className="btn" onClick={() => openDrive(p.driveId)}>PDF R{p.rev}</button>);
+    if (can("quotations", "create")) out.push(<Link key="q" className="btn-primary" href={`/quotations/new?proposalId=${id}`}>Create quotation <ArrowRight size={14} /></Link>);
+  }
+  // Issuing the MOM: branded PDF saved to the project / client documents, shared with attendees (§6.4).
+  if (collection === "meetings" && can("meetings", "edit") && data.status !== "Cancelled") {
+    const issued = data.status === "MOM issued";
+    out.push(
+      <button key="mom" className={issued ? "btn" : "btn-primary"} disabled={busy} onClick={() => run(async () => {
+        if (!confirm(issued ? "Issue a new version of the MOM with the current minutes?" : "Mark the minutes final and issue the MOM?")) throw new Error("Cancelled");
+        const company = await getCompany();
+        const users = (await getDocs(fsCollection(db(), "users"))).docs.map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
+        const uname = (u: unknown) => String(users.find((x) => x.id === u)?.name ?? "");
+        const version = Number(data.momVersion ?? 0) + 1;
+        const html = sectionsDocHtml({
+          company, title: "Minutes of Meeting",
+          meta: [["Meeting", data.title], ["Type", data.meetingType], ["Date", `${data.date ?? ""} ${data.time ?? ""}`], ["Place", data.place ?? ""], ["Chair", uname(data.chair)], ["Attendees", data.attendees ?? ""], ["MOM version", `v${version}`]],
+          sections: [["Agenda", String(data.agenda ?? "")], ["Points discussed", String(data.discussed ?? "")], ["Decisions taken", String(data.decisions ?? "")]],
+          tables: [{ title: "Action items", head: ["#", "Action", "Owner", "Due", "Status"], rows: ((data.actions ?? []) as Record<string, unknown>[]).map((a, i) => [i + 1, a.description, uname(a.owner), a.due ?? "", a.status ?? "Open"]) }],
+        });
+        const project = data.projectId ? await getDocOnce("projects", String(data.projectId)) : null;
+        const client = data.clientId ? await getDocOnce("clients", String(data.clientId)) : null;
+        const folder = project ? `${projectFolder(project)}/MOM` : client ? `${clientFolder(client)}/MOM` : "MOM";
+        const name = `MOM ${data.date ?? ""} ${data.title} v${version}`;
+        const { driveId, fileId } = await makePdf(html, name, { folder, linked: { col: "meetings", id } });
+        await updateDoc("meetings", id, { status: "MOM issued", momVersion: version, momDriveId: driveId, momIssuedAt: new Date().toISOString(), moms: arrayUnion({ version, driveId, at: new Date().toISOString() }) }, data);
+        if (project || client) await addDocRecord({ name: `${name}.pdf`, folder: "MOM", projectId: (data.projectId as string) || null, clientId: (data.clientId as string) || (project?.clientId as string) || null, linked: { col: "meetings", id }, fileId, driveId, mime: "application/pdf" });
+        await openDrive(driveId);
+        return `/meetings/${id}`;
+      })}>{issued ? `Re-issue MOM (v${Number(data.momVersion ?? 1) + 1})` : "Issue MOM"}</button>,
+    );
+  }
+  if (collection === "meetings" && data.momDriveId) {
+    out.push(<button key="mompdf" className="btn" onClick={() => openDrive(String(data.momDriveId))}>MOM v{String(data.momVersion)}</button>);
+    out.push(<button key="momwa" className="btn" onClick={() => shareDoc(String(data.momDriveId), "whatsapp", `MOM: ${data.title} (${data.date})`)}>WhatsApp</button>);
+    out.push(<button key="momem" className="btn" onClick={() => shareDoc(String(data.momDriveId), "email", `MOM: ${data.title} (${data.date})`)}>Email</button>);
+  }
+  return out.length ? <>{out}</> : null;
 }
 
 export function LinkedRecords({ collection, id, data }: { collection: string; id: string; data: D }) {
   if (collection === "clients") return <ClientLinks id={id} />;
+  if (collection === "vendors") return <VendorLinks id={id} />;
+  if (collection === "items") return <ItemLinks id={id} />;
+  if (collection === "meetings") return <MeetingSnapshot data={data} />;
   const links: { href: string; label: string }[] = [];
-  if (data.requirementId) links.push({ href: `/requirements/${data.requirementId}`, label: "Product requirement" });
+  if (data.requirementId) links.push({ href: `/requirements/${data.requirementId}`, label: "Requirement" });
+  if (data.proposalId) links.push({ href: `/proposals/${data.proposalId}`, label: "Proposal" });
   if (data.projectId) links.push({ href: `/projects/${data.projectId}`, label: "Project" });
   if (data.ideaId) links.push({ href: `/ideas/${data.ideaId}`, label: "Product idea" });
   if (data.clientId) links.push({ href: `/clients/${data.clientId}`, label: "Client" });
@@ -101,26 +195,143 @@ function ClientLinks({ id }: { id: string }) {
   const { can } = useAuth();
   const projects = useCollection("projects", [where("clientId", "==", id)], { gstAware: true, enabled: can("projects", "view") }, [id]);
   const reqs = useCollection("requirements", [where("clientId", "==", id)], { enabled: can("requirements", "view") }, [id]);
+  const quotes = useCollection("quotations", [where("clientId", "==", id)], { gstAware: true, enabled: can("quotations", "view") }, [id]);
+  const invoices = useCollection("invoices", [where("clientId", "==", id)], { gstAware: true, enabled: can("invoices", "view") }, [id]);
+  const payments = useCollection("payments", [where("clientId", "==", id)], { gstAware: true, enabled: can("invoices", "view") }, [id]);
+  const live = invoices.rows.filter((i) => i.status !== "Draft" && i.status !== "Cancelled");
+  const billed = live.reduce((s, i) => s + Number(i.total || 0), 0);
+  const received = payments.rows.reduce((s, p) => s + Number(p.amount || 0) + Number(p.tds || 0), 0);
+  const outstanding = live.reduce((s, i) => s + invoiceDue(i), 0);
+  const list = (title: string, rows: Record<string, unknown>[], href: (r: Record<string, unknown>) => string, label: (r: Record<string, unknown>) => string, right: (r: Record<string, unknown>) => React.ReactNode) => (
+    <div className="card p-4">
+      <h2 className="mb-2 text-sm font-semibold">{title}</h2>
+      {rows.length ? rows.map((r) => (
+        <Link key={String(r.id)} href={href(r)} className="flex items-center justify-between gap-2 py-1 text-sm hover:text-brand">
+          <span>{label(r)}</span><span className="flex gap-1">{right(r)}</span>
+        </Link>
+      )) : <div className="text-sm text-muted">None yet</div>}
+    </div>
+  );
   return (
-    <div className="mb-4 grid gap-4 md:grid-cols-2">
-      <div className="card p-4">
-        <h2 className="mb-2 text-sm font-semibold">Projects</h2>
-        {projects.rows.length ? projects.rows.map((p) => (
-          <Link key={p.id} href={`/projects/${p.id}`} className="flex items-center justify-between gap-2 py-1 text-sm hover:text-brand">
-            <span>{String(p.code)} · {String(p.name)}</span>
-            <span className="flex gap-1"><GstBadge type={String(p.billingType)} /><Badge>{String(p.status)}</Badge></span>
-          </Link>
-        )) : <div className="text-sm text-muted">None yet</div>}
+    <div className="mb-4 space-y-4">
+      {can("invoices", "view") && (
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="Total billed" value={inr(billed)} />
+          <Stat label="Total received (incl. TDS)" value={inr(received)} />
+          <Stat label="Outstanding" value={inr(outstanding)} tone={outstanding > 0 ? "danger" : undefined} />
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-2">
+        {list("Projects", projects.rows, (p) => `/projects/${p.id}`, (p) => `${p.code} · ${p.name}`, (p) => <><GstBadge type={String(p.billingType)} /><Badge>{String(p.status)}</Badge></>)}
+        {list("Requirements", reqs.rows, (r) => `/requirements/${r.id}`, (r) => `${r.code} · ${r.title}`, (r) => <Badge>{String(r.status)}</Badge>)}
+        {can("quotations", "view") && list("Quotations", quotes.rows, (q) => `/quotations/${q.id}`, (q) => `${q.number} R${q.rev ?? 0} · ${q.title}`, (q) => <><span className="tabular-nums">{inr(Number(q.total))}</span><Badge>{String(q.status)}</Badge></>)}
+        {can("invoices", "view") && list("Invoices", invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
       </div>
-      <div className="card p-4">
-        <h2 className="mb-2 text-sm font-semibold">Requirements</h2>
-        {reqs.rows.length ? reqs.rows.map((r) => (
-          <Link key={r.id} href={`/requirements/${r.id}`} className="flex items-center justify-between gap-2 py-1 text-sm hover:text-brand">
-            <span>{String(r.code)} · {String(r.title)}</span>
-            <Badge>{String(r.status)}</Badge>
-          </Link>
-        )) : <div className="text-sm text-muted">None yet</div>}
+      <DocsPanel filter={{ clientId: id }} />
+    </div>
+  );
+}
+
+function VendorLinks({ id }: { id: string }) {
+  const { can } = useAuth();
+  const pos = useCollection("pos", [where("vendorId", "==", id)], { gstAware: true, enabled: can("purchases", "view") }, [id]);
+  const bills = useCollection("purchaseBills", [where("vendorId", "==", id)], { gstAware: true, enabled: can("purchases", "view") }, [id]);
+  if (!can("purchases", "view")) return null;
+  const payable = bills.rows.reduce((s, b) => s + Number(b.total || 0) - Number(b.paid || 0), 0);
+  const paid = bills.rows.reduce((s, b) => s + Number(b.paid || 0), 0);
+  return (
+    <div className="mb-4 space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Purchase orders" value={pos.rows.length} />
+        <Stat label="Paid to vendor" value={inr(paid)} />
+        <Stat label="Amount payable" value={inr(payable)} tone={payable > 0 ? "danger" : undefined} />
       </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="card p-4">
+          <h2 className="mb-2 text-sm font-semibold">Purchase orders</h2>
+          {pos.rows.map((p) => <Link key={p.id} href={`/purchases/${p.id}`} className="flex justify-between py-1 text-sm hover:text-brand"><span>{String(p.number ?? "Draft")} · {fmtDate(p.date)}</span><span className="flex gap-1"><span className="tabular-nums">{inr(Number(p.total))}</span><Badge>{String(p.status)}</Badge></span></Link>)}
+          {!pos.rows.length && <div className="text-sm text-muted">None yet</div>}
+        </div>
+        <div className="card p-4">
+          <h2 className="mb-2 text-sm font-semibold">Bills</h2>
+          {bills.rows.map((b) => <Link key={b.id} href={`/purchases/${b.poId}`} className="flex justify-between py-1 text-sm hover:text-brand"><span>{String(b.billNo)} · due {fmtDate(b.dueDate)}</span><span className="flex gap-1"><span className="tabular-nums">{inr(Number(b.total))}</span><Badge>{String(b.status)}</Badge></span></Link>)}
+          {!bills.rows.length && <div className="text-sm text-muted">None yet</div>}
+        </div>
+      </div>
+      <PriceHistory vendorId={id} pos={pos.rows} />
+    </div>
+  );
+}
+
+function PriceHistory({ pos, vendorId }: { pos: Record<string, unknown>[]; vendorId?: string; itemId?: string }) {
+  const rows = pos.filter((p) => p.status !== "Cancelled" && p.status !== "Rejected").flatMap((p) => ((p.lines ?? []) as Record<string, unknown>[]).map((l) => ({ p, l })));
+  if (!rows.length) return null;
+  return (
+    <div className="card overflow-x-auto p-4">
+      <h2 className="mb-2 text-sm font-semibold">Price history{vendorId ? " per item" : ""}</h2>
+      <table className="table">
+        <thead><tr><th>Date</th><th>PO</th>{vendorId ? <th>Item</th> : <th>Vendor</th>}<th className="text-right">Qty</th><th className="text-right">Rate</th></tr></thead>
+        <tbody>
+          {rows.sort((a, b) => String(b.p.date).localeCompare(String(a.p.date))).map(({ p, l }, i) => (
+            <tr key={i}><td>{fmtDate(p.date)}</td><td>{String(p.number ?? "Draft")}</td><td>{vendorId ? String(l.description) : String(p.vendorName)}</td><td className="text-right">{String(l.qty)}</td><td className="text-right tabular-nums">{inr(Number(l.rate))}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ItemLinks({ id }: { id: string }) {
+  const { can } = useAuth();
+  const moves = useCollection("stockMoves", [where("itemId", "==", id)], {}, [id]);
+  const pos = useCollection("pos", [], { gstAware: true, enabled: can("purchases", "view") });
+  const byLoc: Record<string, number> = {};
+  for (const m of moves.rows) byLoc[String(m.location)] = (byLoc[String(m.location)] ?? 0) + Number(m.qty);
+  const total = Object.values(byLoc).reduce((s, x) => s + x, 0);
+  const itemPos = pos.rows.filter((p) => ((p.lines ?? []) as Record<string, unknown>[]).some((l) => l.itemId === id)).map((p) => ({ ...p, lines: ((p.lines ?? []) as Record<string, unknown>[]).filter((l) => l.itemId === id) }));
+  return (
+    <div className="mb-4 space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="In stock" value={total} />
+        {Object.entries(byLoc).map(([l, q]) => <Stat key={l} label={l} value={q} />)}
+      </div>
+      <div className="card overflow-x-auto p-4">
+        <h2 className="mb-2 text-sm font-semibold">Movements</h2>
+        {!moves.rows.length ? <div className="text-sm text-muted">No movements yet.</div> : (
+          <table className="table">
+            <thead><tr><th>Date</th><th>Type</th><th>Location</th><th className="text-right">Qty</th><th>Note</th></tr></thead>
+            <tbody>{[...moves.rows].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((m) => <tr key={m.id}><td>{fmtDate(m.date)}</td><td>{String(m.type)}</td><td>{String(m.location)}</td><td className="text-right tabular-nums">{String(m.qty)}</td><td>{String(m.note ?? "")}</td></tr>)}</tbody>
+          </table>
+        )}
+      </div>
+      <PriceHistory pos={itemPos} itemId={id} />
+    </div>
+  );
+}
+
+function MeetingSnapshot({ data }: { data: D }) {
+  const { nonGst } = useAuth();
+  const snap = (nonGst && data.snapshotFull ? data.snapshotFull : data.snapshot) as Snapshot | undefined;
+  const links: React.ReactNode[] = [];
+  if (data.projectId) links.push(<Link key="p" href={`/projects/${data.projectId}`} className="btn">Project <ArrowRight size={14} /></Link>);
+  if (data.clientId) links.push(<Link key="c" href={`/clients/${data.clientId}`} className="btn">Client <ArrowRight size={14} /></Link>);
+  if (!snap) return links.length ? <div className="mb-4 flex gap-2">{links}</div> : null;
+  return (
+    <div className="mb-4 space-y-3">
+      {links.length > 0 && <div className="flex gap-2">{links}</div>}
+      <details className="card p-4">
+        <summary className="cursor-pointer text-sm font-semibold">Figures as on {new Date(snap.at).toLocaleDateString("en-IN")}{snap.includesNonGst ? " (incl. non-GST)" : " (GST only)"}</summary>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label="Cash position" value={inr(snap.cash.total)} />
+          <Stat label="Receivables" value={inr(snap.receivables)} hint={`overdue ${inr(snap.overdueReceivables)}`} />
+          <Stat label="Payables" value={inr(snap.payables)} />
+          <Stat label="Quotations out" value={inr(snap.pipeline.quotationsSentValue)} hint={`${snap.pipeline.quotationsSent} sent`} />
+        </div>
+        <table className="table mt-3">
+          <thead><tr><th>Project</th><th>Status</th><th className="text-right">Received</th><th className="text-right">Cost</th><th className="text-right">Profit</th></tr></thead>
+          <tbody>{snap.projects.map((p) => <tr key={p.code}><td>{p.code} {p.name}</td><td>{p.status}</td><td className="text-right">{inr(p.received)}</td><td className="text-right">{inr(p.cost)}</td><td className="text-right">{inr(p.profit)}</td></tr>)}</tbody>
+        </table>
+      </details>
     </div>
   );
 }

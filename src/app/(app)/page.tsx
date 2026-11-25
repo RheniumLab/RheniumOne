@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { collectionGroup, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useStock } from "@/lib/stock";
 import { Badge, Empty, PageHeader, Stat } from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
-import { balances, useEntries, useTransfers } from "@/lib/money";
+import { AGE_BUCKETS, ageBucket, ageDays, balances, invoiceDue, useEntries, useTransfers } from "@/lib/money";
 import { fmtDate, inr } from "@/lib/data";
 import { PROJECT_STATUSES } from "@/lib/seed";
 
@@ -62,10 +65,8 @@ export default function Dashboard() {
         )}
       </section>
 
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-muted">Who owes us</h2>
-        <div className="card"><Empty>Receivables and ageing appear here once invoicing (module 15) is built in the next phase.</Empty></div>
-      </section>
+      {can("invoices", "view") && <Receivables />}
+      <Alerts />
 
       {can("projects", "view") && (
         <section>
@@ -105,4 +106,73 @@ export default function Dashboard() {
       )}
     </div>
   );
+}
+
+function Receivables() {
+  const invoices = useCollection("invoices", [], { gstAware: true });
+  const open = invoices.rows.filter((i) => invoiceDue(i) > 0);
+  const total = open.reduce((s, i) => s + invoiceDue(i), 0);
+  const buckets = Object.fromEntries(AGE_BUCKETS.map((b) => [b, open.filter((i) => ageBucket(ageDays(i.date)) === b).reduce((s, i) => s + invoiceDue(i), 0)]));
+  const byClient = new Map<string, { id: string; due: number }>();
+  for (const i of open) { const e = byClient.get(String(i.clientName)) ?? { id: String(i.clientId), due: 0 }; e.due += invoiceDue(i); byClient.set(String(i.clientName), e); }
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between"><h2 className="text-sm font-semibold text-muted">Who owes us</h2><Link className="text-xs text-brand" href="/payments">Dues & ageing →</Link></div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Stat label="Outstanding" value={inr(total)} />
+        {AGE_BUCKETS.map((b) => <Stat key={b} label={`${b} days`} value={inr(buckets[b])} tone={b === "90+" && buckets[b] > 0 ? "danger" : undefined} />)}
+      </div>
+      {byClient.size > 0 && (
+        <div className="card mt-3 divide-y divide-border">
+          {[...byClient.entries()].sort((a, b) => b[1].due - a[1].due).slice(0, 6).map(([n, e]) => (
+            <Link key={n} href={`/clients/${e.id}`} className="flex justify-between px-4 py-2 text-sm hover:bg-surface-2"><span>{n}</span><span className="tabular-nums">{inr(e.due)}</span></Link>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Alerts and my work: approvals, handovers, low stock, asset service, my tasks and action items. */
+function Alerts() {
+  const { can, user } = useAuth();
+  const { low } = useStock();
+  const assets = useCollection("assets", [], { enabled: can("assets", "view") });
+  const meetings = useCollection("meetings", [], { enabled: can("meetings", "view") });
+  const myTasks = useMyTasks(user?.uid);
+  const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const assetsDue = assets.rows.filter((a) => a.status !== "Disposed" && ["serviceDue", "calibrationDue", "warrantyUntil"].some((k) => a[k] && String(a[k]) <= in30));
+  const myActions = meetings.rows.flatMap((m) => ((m.actions ?? []) as Record<string, unknown>[]).filter((a) => a.owner === user?.uid && a.status !== "Done").map((a): Record<string, unknown> => ({ ...a, m })));
+  const items: { href: string; text: string; danger?: boolean }[] = [
+    ...low.map((it) => ({ href: `/inventory/${it.id}`, text: `Low stock: ${it.name}`, danger: true })),
+    ...assetsDue.map((a) => ({ href: `/assets/${a.id}`, text: `Service / calibration / warranty due: ${a.name}` })),
+    ...myTasks.map((t) => ({ href: `/projects/${t.projectId}`, text: `Task: ${t.title}${t.due ? ` (due ${fmtDate(t.due)})` : ""}`, danger: Boolean(t.due && String(t.due) < today) })),
+    ...myActions.map((a) => ({ href: `/meetings/${(a.m as { id: string }).id}`, text: `Action: ${a.description}${a.due ? ` (due ${fmtDate(a.due)})` : ""}`, danger: Boolean(a.due && String(a.due) < today) })),
+  ];
+  if (!items.length) return null;
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-semibold text-muted">Needs attention</h2>
+      <div className="card divide-y divide-border">
+        {items.slice(0, 15).map((x, i) => (
+          <Link key={i} href={x.href} className={`block px-4 py-2 text-sm hover:bg-surface-2 ${x.danger ? "text-danger" : ""}`}>{x.text}</Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Tasks assigned to me across projects (collection group query). */
+function useMyTasks(uid?: string) {
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  useEffect(() => {
+    if (!uid) return;
+    return onSnapshot(
+      query(collectionGroup(db(), "tasks"), where("assignee", "==", uid)),
+      (s) => setRows(s.docs.map((d) => ({ id: d.id, projectId: d.ref.parent.parent?.id, ...d.data() })).filter((t) => (t as Record<string, unknown>).status !== "done")),
+      () => setRows([]),
+    );
+  }, [uid]);
+  return rows as (Record<string, unknown> & { projectId?: string; title?: string; due?: string })[];
 }

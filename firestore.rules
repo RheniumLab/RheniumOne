@@ -1,7 +1,8 @@
 rules_version = '2';
 
 // Rhenium One — role-based access (requirements §2, §9, §10).
-// The admin SDK (Next.js API routes) bypasses these rules.
+// The admin SDK (Next.js API routes) bypasses these rules; collections with no
+// rule here (secrets, oauthState, driveFolders) are server-only.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -16,11 +17,17 @@ service cloud.firestore {
     }
     function seesNonGst() { return active() && (role().get('isAdmin', false) == true || role().get('nonGst', false) == true); }
     function gstOk(data) { return data.get('billingType', 'gst') != 'nonGst' || seesNonGst(); }
-    // Money entries are never hard-deleted (§10.2); soft delete needs the delete permission.
+    function changedOnly(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    // Records are never hard-deleted (§10.2); marking deleted needs the delete permission.
     function softDeleting(m) {
       return request.resource.data.get('deleted', false) == true && resource.data.get('deleted', false) != true
         ? can(m, 'delete') : true;
     }
+    // Raising an approval request marks the document as waiting (§10.1).
+    function requestingApproval(m) {
+      return can(m, 'delete') && changedOnly(['pendingApproval', 'deleteRequested', 'cancelRequested', 'updatedAt', 'updatedBy']);
+    }
+    function crudRead(m) { return can(m, 'view'); }
 
     // ---- Users, roles, settings --------------------------------------
     match /users/{uid} {
@@ -48,50 +55,57 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if active() && request.resource.data.uid == request.auth.uid;
     }
+    match /approvals/{id} {
+      allow read: if active();
+      allow create: if active() && request.resource.data.requestedBy == request.auth.uid && request.resource.data.status == 'pending';
+      // Decisions are made through /api/approvals/decide (server).
+    }
 
-    // ---- Generic modules ---------------------------------------------
+    // ---- Masters and sales -------------------------------------------
     match /clients/{id} {
-      allow read: if can('clients', 'view');
+      allow read: if crudRead('clients');
       allow create: if can('clients', 'create');
-      allow update: if can('clients', 'edit') && softDeleting('clients');
+      allow update: if (can('clients', 'edit') && softDeleting('clients')) || (can('documents', 'edit') && changedOnly(['docFolders', 'updatedAt', 'updatedBy']));
     }
     match /vendors/{id} {
-      allow read: if can('vendors', 'view');
+      allow read: if crudRead('vendors') || can('purchases', 'view') || can('sourcing', 'view');
       allow create: if can('vendors', 'create');
       allow update: if can('vendors', 'edit') && softDeleting('vendors');
     }
     match /requirements/{id} {
-      allow read: if can('requirements', 'view');
+      allow read: if crudRead('requirements');
       allow create: if can('requirements', 'create');
-      allow update: if can('requirements', 'edit') && softDeleting('requirements');
+      allow update: if (can('requirements', 'edit') || can('proposals', 'create') || can('projects', 'create')) && softDeleting('requirements');
+    }
+    match /proposals/{id} {
+      allow read: if crudRead('proposals');
+      allow create: if can('proposals', 'create');
+      allow update: if can('proposals', 'edit') && softDeleting('proposals');
+    }
+    match /quotations/{id} {
+      allow read: if crudRead('quotations') && gstOk(resource.data);
+      allow create: if can('quotations', 'create') && gstOk(request.resource.data);
+      allow update: if (can('quotations', 'edit') && gstOk(request.resource.data) && softDeleting('quotations'))
+        || (can('projects', 'create') && changedOnly(['projectId', 'updatedAt', 'updatedBy']));
     }
     match /ideas/{id} {
-      allow read: if can('ideas', 'view');
+      allow read: if crudRead('ideas');
       allow create: if can('ideas', 'create');
-      // Converting an idea (→ requirement → project) updates its stage and links.
       allow update: if (can('ideas', 'edit') || can('requirements', 'create') || can('projects', 'create')) && softDeleting('ideas');
     }
-    match /items/{id} {
-      allow read: if can('inventory', 'view');
-      allow create: if can('inventory', 'create');
-      allow update: if can('inventory', 'edit') && softDeleting('inventory');
-    }
-    match /assets/{id} {
-      allow read: if can('assets', 'view');
-      allow create: if can('assets', 'create');
-      allow update: if can('assets', 'edit') && softDeleting('assets');
-    }
     match /meetings/{id} {
-      allow read: if can('meetings', 'view');
+      allow read: if crudRead('meetings');
       allow create: if can('meetings', 'create');
-      allow update: if can('meetings', 'edit') && softDeleting('meetings');
+      // Owners update their own action items from the phone (§6.4).
+      allow update: if (can('meetings', 'edit') && softDeleting('meetings')) || (can('meetings', 'view') && changedOnly(['actions', 'updatedAt', 'updatedBy']));
     }
 
     // ---- Projects ----------------------------------------------------
     match /projects/{id} {
-      allow read: if can('projects', 'view') && gstOk(resource.data);
+      allow read: if crudRead('projects') && gstOk(resource.data);
       allow create: if can('projects', 'create') && gstOk(request.resource.data);
-      allow update: if can('projects', 'edit') && gstOk(request.resource.data) && softDeleting('projects');
+      allow update: if (can('projects', 'edit') && gstOk(request.resource.data) && softDeleting('projects'))
+        || (can('documents', 'edit') && changedOnly(['docFolders', 'updatedAt', 'updatedBy']));
 
       match /tasks/{t} {
         allow read: if can('projects', 'view');
@@ -101,6 +115,69 @@ service cloud.firestore {
         allow read: if can('projects', 'view');
         allow create: if can('projects', 'view') && request.resource.data.uid == request.auth.uid;
       }
+    }
+    // "My tasks" across projects.
+    match /{path=**}/tasks/{t} {
+      allow read: if can('projects', 'view') || (active() && resource.data.assignee == request.auth.uid);
+    }
+    match /docs/{id} {
+      allow read: if can('documents', 'view') && gstOk(resource.data);
+      allow create: if active();
+      allow update: if (can('documents', 'edit') && softDeleting('documents'))
+        || (can('documents', 'create') && changedOnly(['versions', 'updatedAt', 'updatedBy']))
+        || (can('projects', 'create') && changedOnly(['projectId', 'updatedAt', 'updatedBy']));
+    }
+    match /files/{id} {
+      allow read: if active() && (gstOk(resource.data) || resource.data.uid == request.auth.uid);
+      allow create: if active() && request.resource.data.uid == request.auth.uid;
+      allow update: if active() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // ---- Engineering and supply --------------------------------------
+    match /boms/{id} {
+      allow read: if crudRead('boms') || can('sourcing', 'view');
+      allow create: if can('boms', 'create');
+      allow update: if (can('boms', 'edit') || can('sourcing', 'edit')) && softDeleting('boms');
+    }
+    match /pos/{id} {
+      allow read: if crudRead('purchases') && gstOk(resource.data);
+      allow create: if can('purchases', 'create') && gstOk(request.resource.data);
+      allow update: if can('purchases', 'edit') && gstOk(request.resource.data) && softDeleting('purchases');
+    }
+    match /grns/{id} {
+      allow read: if crudRead('purchases');
+      allow create: if can('purchases', 'edit');
+    }
+    match /purchaseBills/{id} {
+      allow read: if crudRead('purchases') && gstOk(resource.data);
+      allow create: if can('purchases', 'edit') && gstOk(request.resource.data);
+      allow update: if (can('purchases', 'edit') && gstOk(request.resource.data))
+        || (can('cashflow', 'create') && changedOnly(['paid', 'status', 'updatedAt', 'updatedBy']));
+    }
+    match /items/{id} {
+      allow read: if active();
+      allow create: if can('inventory', 'create');
+      allow update: if can('inventory', 'edit') && softDeleting('inventory');
+    }
+    match /stockMoves/{id} {
+      allow read: if crudRead('inventory') || can('purchases', 'view') || can('challans', 'view');
+      allow create: if can('inventory', 'edit') || can('purchases', 'edit') || can('challans', 'create') || can('challans', 'edit');
+    }
+    match /challans/{id} {
+      allow read: if crudRead('challans');
+      allow create: if can('challans', 'create');
+      allow update: if can('challans', 'edit') && softDeleting('challans');
+    }
+    match /assets/{id} {
+      allow read: if crudRead('assets');
+      allow create: if can('assets', 'create') || can('purchases', 'edit');
+      allow update: if can('assets', 'edit') && softDeleting('assets');
+    }
+    match /assetRequests/{id} {
+      allow read: if crudRead('assets');
+      allow create: if active() && request.resource.data.status == 'Requested';
+      allow update: if can('assets', 'edit') || can('assets', 'approve')
+        || (can('purchases', 'create') && changedOnly(['status', 'poId', 'updatedAt', 'updatedBy']));
     }
 
     // ---- Money -------------------------------------------------------
@@ -115,7 +192,7 @@ service cloud.firestore {
       allow read: if (can('cashflow', 'view') && gstOk(resource.data)) || (active() && ownWallet(resource.data));
       allow create: if (can('cashflow', 'create') && gstOk(request.resource.data))
         || (can('custody', 'create') && ownWallet(request.resource.data));
-      allow update: if can('cashflow', 'edit') && gstOk(request.resource.data) && softDeleting('cashflow');
+      allow update: if (can('cashflow', 'edit') && gstOk(request.resource.data) && softDeleting('cashflow')) || requestingApproval('cashflow');
     }
     match /transfers/{id} {
       allow read: if can('custody', 'approve')
@@ -124,19 +201,27 @@ service cloud.firestore {
         && (can('cashflow', 'create') || request.resource.data.fromHolder == request.auth.uid);
       // Only the receiver confirms a handover; custody approvers can fix records.
       allow update: if can('custody', 'approve')
-        || (active() && resource.data.toHolder == request.auth.uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedAt', 'updatedAt', 'updatedBy']));
+        || (active() && resource.data.toHolder == request.auth.uid && changedOnly(['status', 'confirmedAt', 'updatedAt', 'updatedBy']));
     }
     match /claims/{id} {
       allow read: if can('claims', 'approve') || (active() && resource.data.claimant == request.auth.uid);
       allow create: if can('claims', 'create') && request.resource.data.claimant == request.auth.uid
         && request.resource.data.status == 'submitted';
       allow update: if can('claims', 'approve')
-        || (can('cashflow', 'create') && resource.data.status == 'approved');
+        || (can('cashflow', 'create') && resource.data.status == 'approved')
+        || (active() && resource.data.claimant == request.auth.uid && changedOnly(['pendingApproval', 'updatedAt', 'updatedBy']));
     }
-    match /attachments/{id} {
-      allow read: if active() && (gstOk(resource.data) || resource.data.uid == request.auth.uid);
-      allow create: if active() && request.resource.data.uid == request.auth.uid;
+    match /invoices/{id} {
+      allow read: if crudRead('invoices') && gstOk(resource.data);
+      allow create: if can('invoices', 'create') && gstOk(request.resource.data) && request.resource.data.status == 'Draft';
+      allow update: if (can('invoices', 'edit') && gstOk(request.resource.data) && resource.data.status != 'Cancelled'
+          && (resource.data.status == 'Draft' || request.resource.data.lines == resource.data.lines))
+        || requestingApproval('invoices');
+    }
+    match /payments/{id} {
+      allow read: if (crudRead('invoices') || crudRead('tds')) && gstOk(resource.data);
+      allow create: if can('invoices', 'edit') && gstOk(request.resource.data);
+      allow update: if (can('tds', 'edit') || can('invoices', 'edit')) && changedOnly(['tds26AS', 'tdsCertReceived', 'updatedAt', 'updatedBy']);
     }
   }
 }

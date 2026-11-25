@@ -8,10 +8,22 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { useEntries } from "@/lib/money";
 import { fmtDate, inr, softDelete } from "@/lib/data";
-import { openAttachment } from "@/lib/attachments";
+import { openFile } from "@/lib/files";
+import { requestApproval } from "@/lib/business";
+
+async function deleteEntry(e: Record<string, unknown> & { id: string }, isAdmin: boolean) {
+  if (!confirm("Delete this entry? It is marked deleted and stays in the audit log.")) return;
+  if (isAdmin) return softDelete("entries", e.id);
+  const r = await requestApproval({
+    type: "entryDelete", col: "entries", docId: e.id, amount: Number(e.amount),
+    summary: `Delete ${e.direction === "in" ? "receipt" : "payment"} of ₹${e.amount} (${e.category}) dated ${e.date}`, link: "/cashflow",
+  });
+  if (r === "none") await softDelete("entries", e.id);
+  else alert("Sent for approval. The entry stays until it is approved.");
+}
 
 export default function CashFlowPage() {
-  const { can, nonGst } = useAuth();
+  const { can, nonGst, isAdmin } = useAuth();
   const { rows, loading, error } = useEntries();
   const { rows: accounts } = useCollection("accounts");
   const { rows: projects } = useCollection("projects", [], { gstAware: true, enabled: can("projects", "view") });
@@ -86,9 +98,9 @@ export default function CashFlowPage() {
                       {e.direction === "in" ? "+" : "−"}{inr(Number(e.amount))}
                     </td>
                     <td className="whitespace-nowrap text-right">
-                      {e.billId ? <button className="text-muted hover:text-brand" title="View bill" onClick={() => openAttachment(String(e.billId))}><Paperclip size={14} /></button> : null}
-                      {can("cashflow", "delete") && (
-                        <button className="ml-2 text-muted hover:text-danger" title="Delete" onClick={() => confirm("Mark this entry deleted? It stays in the audit log.") && softDelete("entries", e.id)}>
+                      {e.billId ? <button className="text-muted hover:text-brand" title="View bill" onClick={() => openFile(String(e.billId))}><Paperclip size={14} /></button> : null}
+                      {e.pendingApproval ? <Badge kind="warn">Delete pending</Badge> : can("cashflow", "delete") && (
+                        <button className="ml-2 text-muted hover:text-danger" title="Delete" onClick={() => deleteEntry(e, isAdmin)}>
                           <Trash2 size={14} />
                         </button>
                       )}

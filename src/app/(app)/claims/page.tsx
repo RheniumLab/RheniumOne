@@ -8,7 +8,21 @@ import { Badge, Empty, ErrorBox, PageHeader } from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { createDoc, fmtDate, inr, today, updateDoc, type Doc } from "@/lib/data";
-import { openAttachment, saveAttachment } from "@/lib/attachments";
+import { openFile, saveFile } from "@/lib/files";
+import { requestApproval } from "@/lib/business";
+import { api } from "@/lib/api";
+
+async function decide(c: Doc, decision: "approve" | "reject", uid?: string) {
+  const comment = decision === "reject" ? prompt("Reason for rejecting?") : "";
+  if (comment === null) return;
+  const pa = c.pendingApproval as { id?: string } | null;
+  try {
+    if (pa?.id) await api("/api/approvals/decide", "POST", { approvalId: pa.id, decision, comment });
+    else await updateDoc("claims", c.id, decision === "approve" ? { status: "approved", approvedBy: uid } : { status: "rejected", rejectReason: comment, approvedBy: uid }, c);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  }
+}
 
 /** §8.6 Expense claims: submitted → approved / rejected → paid (posts to cash flow). */
 export default function ClaimsPage() {
@@ -69,14 +83,11 @@ export default function ClaimsPage() {
                   <td className="text-right tabular-nums">{inr(Number(c.amount))}</td>
                   <td><Badge>{String(c.status)}</Badge></td>
                   <td className="whitespace-nowrap text-right">
-                    {c.billId ? <button className="mr-2 text-muted hover:text-brand" onClick={() => openAttachment(String(c.billId))} title="View bill"><Paperclip size={14} /></button> : null}
+                    {c.billId ? <button className="mr-2 text-muted hover:text-brand" onClick={() => openFile(String(c.billId))} title="View bill"><Paperclip size={14} /></button> : null}
                     {manager && c.status === "submitted" && c.claimant !== user?.uid && (
                       <>
-                        <button className="btn !py-1 mr-1" onClick={() => updateDoc("claims", c.id, { status: "approved", approvedBy: user?.uid }, c)}>Approve</button>
-                        <button className="btn-danger !py-1" onClick={() => {
-                          const reason = prompt("Reason for rejecting?");
-                          if (reason !== null) updateDoc("claims", c.id, { status: "rejected", rejectReason: reason, approvedBy: user?.uid }, c);
-                        }}>Reject</button>
+                        <button className="btn !py-1 mr-1" onClick={() => decide(c, "approve", user?.uid)}>Approve</button>
+                        <button className="btn-danger !py-1" onClick={() => decide(c, "reject", user?.uid)}>Reject</button>
                       </>
                     )}
                     {c.status === "approved" && can("cashflow", "create") && <button className="btn-primary !py-1" onClick={() => pay(c)}>Pay out</button>}
@@ -106,8 +117,9 @@ function ClaimForm({ onDone }: { onDone: () => void }) {
         if (!bill) return setErr("Attach the bill photo.");
         setBusy(true);
         try {
-          const billId = await saveAttachment(bill, { linked: "claims" });
-          await createDoc("claims", { ...v, amount: Number(v.amount), projectId: v.scope === "project" ? v.projectId : null, billId, claimant: user?.uid, status: "submitted" });
+          const billId = await saveFile(bill, { folder: `Claims/${v.date.slice(0, 7)}` });
+          const id = await createDoc("claims", { ...v, amount: Number(v.amount), projectId: v.scope === "project" ? v.projectId : null, billId, claimant: user?.uid, status: "submitted" });
+          await requestApproval({ type: "claim", col: "claims", docId: id, amount: Number(v.amount), summary: `Expense claim ₹${v.amount} — ${v.category}: ${v.description}`, link: "/claims" }).catch(() => "none");
           onDone();
         } catch (e) {
           setErr(e instanceof Error ? e.message : String(e));

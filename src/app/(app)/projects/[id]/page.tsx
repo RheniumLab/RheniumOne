@@ -15,10 +15,12 @@ import { db } from "@/lib/firebase";
 import { useCollection } from "@/lib/hooks";
 import { fmtDate, inr, type Doc } from "@/lib/data";
 import { projectTransform } from "../transform";
+import { DocsPanel } from "@/components/docs-panel";
+import { invoiceDue } from "@/lib/money";
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<"overview" | "tasks" | "money" | "comments">("overview");
+  const [tab, setTab] = useState<"overview" | "tasks" | "money" | "documents" | "build" | "comments">("overview");
   return (
     <EntityDetail def={ENTITIES.projects} id={id} transform={projectTransform}>
       {(p) => (
@@ -26,7 +28,7 @@ export default function ProjectPage() {
           <LinkedRecords collection="projects" id={id} data={p} />
           <MoneyView project={p} id={id} />
           <div className="flex gap-1 border-b border-border">
-            {(["overview", "tasks", "money", "comments"] as const).map((t) => (
+            {(["overview", "tasks", "money", "documents", "build", "comments"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -39,6 +41,8 @@ export default function ProjectPage() {
           {tab === "overview" && <Overview p={p} />}
           {tab === "tasks" && <Tasks projectId={id} />}
           {tab === "money" && <ProjectEntries projectId={id} />}
+          {tab === "documents" && <DocsPanel filter={{ projectId: id }} />}
+          {tab === "build" && <Build projectId={id} />}
           {tab === "comments" && <Comments projectId={id} />}
         </div>
       )}
@@ -53,7 +57,12 @@ function useProjectEntries(projectId: string) {
 
 /** §6.1 money view: quoted, invoiced, received, outstanding, direct costs, direct profit. */
 function MoneyView({ project, id }: { project: Record<string, unknown>; id: string }) {
+  const { can } = useAuth();
   const { rows } = useProjectEntries(id);
+  const invoices = useCollection("invoices", [where("projectId", "==", id)], { gstAware: true, enabled: can("invoices", "view") }, [id]);
+  const live = invoices.rows.filter((i) => i.status !== "Draft" && i.status !== "Cancelled");
+  const invoiced = live.reduce((s, i) => s + Number(i.total || 0), 0);
+  const dues = live.reduce((s, i) => s + invoiceDue(i), 0);
   const counted = rows.filter((e) => e.status !== "pending");
   const received = counted.filter((e) => e.direction === "in").reduce((s, e) => s + Number(e.amount || 0), 0);
   const costs = counted.filter((e) => e.direction === "out").reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -71,10 +80,11 @@ function MoneyView({ project, id }: { project: Record<string, unknown>; id: stri
   const value = Number(project.value || 0);
   const profit = received - costs;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-      <Stat label="Project value" value={inr(value)} />
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <Stat label="Quoted value" value={inr(value)} />
+      <Stat label="Invoiced" value={inr(invoiced)} hint={value ? `${Math.round((invoiced / value) * 100)}% of value` : undefined} />
       <Stat label="Received" value={inr(received)} />
-      <Stat label="Outstanding (vs value)" value={inr(value - received)} />
+      <Stat label="Outstanding dues" value={inr(dues)} tone={dues > 0 ? "danger" : undefined} />
       <Stat label="Direct costs" value={inr(costs)} />
       <Stat label="Direct profit" value={inr(profit)} tone={profit < 0 ? "danger" : "ok"} hint={received ? `${Math.round((profit / received) * 100)}% margin on received` : undefined} />
     </div>
@@ -138,6 +148,8 @@ function Tasks({ projectId }: { projectId: string }) {
   const move = (t: Doc, status: string) => void fsUpdate(doc(col(), t.id), { status });
   const remove = (t: Doc) => confirm("Delete task?") && void deleteDoc(doc(col(), t.id));
   const overdue = (t: Doc) => t.status !== "done" && t.due && String(t.due) < new Date().toISOString().slice(0, 10);
+  const meetings = useCollection("meetings", [where("projectId", "==", projectId)], { enabled: can("meetings", "view") }, [projectId]);
+  const actionItems = meetings.rows.flatMap((m) => ((m.actions ?? []) as Record<string, unknown>[]).map((a, i): Record<string, unknown> => ({ ...a, meeting: m, idx: i })));
 
   const card = (t: Doc) => (
     <div key={t.id} className="rounded-md border border-border bg-surface p-2 text-sm">
@@ -168,6 +180,17 @@ function Tasks({ projectId }: { projectId: string }) {
           <input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           <button className="btn-primary"><Plus size={14} /> Add</button>
         </form>
+      )}
+      {actionItems.length > 0 && (
+        <div className="card p-3">
+          <h3 className="mb-2 text-xs font-semibold text-muted">Action items from meetings</h3>
+          {actionItems.map((a, i) => (
+            <Link key={i} href={`/meetings/${(a.meeting as Doc).id}`} className="flex flex-wrap items-center justify-between gap-2 py-1 text-sm hover:text-brand">
+              <span>{String(a.description ?? "")} <span className="text-xs text-muted">· {name(a.owner)} · {String((a.meeting as Doc).title)}</span></span>
+              <span className="flex gap-1">{a.due ? <span className={a.status !== "Done" && String(a.due) < new Date().toISOString().slice(0, 10) ? "text-xs text-danger" : "text-xs text-muted"}>{fmtDate(a.due)}</span> : null}<Badge>{String(a.status ?? "Open")}</Badge></span>
+            </Link>
+          ))}
+        </div>
       )}
       <div className="flex gap-1">
         <button className={view === "board" ? "btn-primary" : "btn"} onClick={() => setView("board")}>Board</button>
@@ -258,6 +281,29 @@ function Comments({ projectId }: { projectId: string }) {
           <div className="whitespace-pre-wrap">{String(c.text)}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** BOMs, purchase orders and invoices linked to this project. */
+function Build({ projectId }: { projectId: string }) {
+  const { can } = useAuth();
+  const boms = useCollection("boms", [where("projectId", "==", projectId)], { enabled: can("boms", "view") }, [projectId]);
+  const pos = useCollection("pos", [where("projectId", "==", projectId)], { gstAware: true, enabled: can("purchases", "view") }, [projectId]);
+  const invoices = useCollection("invoices", [where("projectId", "==", projectId)], { gstAware: true, enabled: can("invoices", "view") }, [projectId]);
+  const challans = useCollection("challans", [where("projectId", "==", projectId)], { enabled: can("challans", "view") }, [projectId]);
+  const box = (title: string, newHref: string | null, rows: Doc[], href: (r: Doc) => string, label: (r: Doc) => string, right: (r: Doc) => React.ReactNode) => (
+    <div className="card p-4">
+      <div className="mb-2 flex items-center justify-between"><h2 className="text-sm font-semibold">{title}</h2>{newHref && <Link className="btn !py-1" href={newHref}><Plus size={13} /> New</Link>}</div>
+      {rows.length ? rows.map((r) => <Link key={r.id} href={href(r)} className="flex justify-between gap-2 py-1 text-sm hover:text-brand"><span>{label(r)}</span><span className="flex gap-1">{right(r)}</span></Link>) : <div className="text-sm text-muted">None yet</div>}
+    </div>
+  );
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {can("boms", "view") && box("BOMs", can("boms", "create") ? "/boms" : null, boms.rows, (b) => `/boms/${b.id}`, (b) => `${b.code} · ${b.name} (Rev ${b.rev})`, (b) => <Badge kind="brand">{String(b.kind)}</Badge>)}
+      {can("purchases", "view") && box("Purchase orders", can("purchases", "create") ? `/purchases/new?projectId=${projectId}` : null, pos.rows, (p) => `/purchases/${p.id}`, (p) => `${p.number ?? "Draft"} · ${p.vendorName}`, (p) => <><span className="tabular-nums">{inr(Number(p.total))}</span><Badge>{String(p.status)}</Badge></>)}
+      {can("invoices", "view") && box("Invoices", can("invoices", "create") ? `/invoices/new?projectId=${projectId}` : null, invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
+      {can("challans", "view") && box("Delivery challans", can("challans", "create") ? `/challans/new?projectId=${projectId}` : null, challans.rows, (c) => `/challans/${c.id}`, (c) => `${c.number} · ${fmtDate(c.date)}`, (c) => <Badge>{String(c.status)}</Badge>)}
     </div>
   );
 }

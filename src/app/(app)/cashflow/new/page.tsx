@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { MODES } from "@/lib/money";
 import { createDoc, today } from "@/lib/data";
-import { saveAttachment } from "@/lib/attachments";
+import { saveFile } from "@/lib/files";
 
 export default function NewEntryPage() {
   return (
@@ -92,7 +92,7 @@ function NewEntry() {
     if (!account) return setErr("Choose the account the money moved through.");
     setBusy(true);
     try {
-      const billId = bill ? await saveAttachment(bill, { billingType: v.billingType, linked: "entries" }) : null;
+      const billId = bill ? await saveFile(bill, { folder: `Bills/${v.date.slice(0, 7)}`, billingType: v.billingType }) : null;
       await createDoc("entries", {
         date: v.date,
         direction: v.direction,

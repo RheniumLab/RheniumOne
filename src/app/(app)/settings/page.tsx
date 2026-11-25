@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useDoc } from "@/lib/hooks";
+import { APPROVAL_LABELS, DEFAULT_RULES, type ApprovalRule, type CompanySettings } from "@/lib/business";
 import { doc, setDoc } from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { Badge, ErrorBox, NoAccess, PageHeader } from "@/components/ui";
@@ -13,17 +16,24 @@ import { ACTIONS, type Role } from "@/lib/permissions";
 import { createDoc, updateDoc } from "@/lib/data";
 
 export default function SettingsPage() {
+  return <Suspense><Settings /></Suspense>;
+}
+
+function Settings() {
   const { isAdmin } = useAuth();
-  const [tab, setTab] = useState<"users" | "roles" | "categories">("users");
+  const params = useSearchParams();
+  const [tab, setTab] = useState<"company" | "users" | "roles" | "approvals" | "categories">((params.get("tab") as "company") || "company");
   if (!isAdmin) return <NoAccess />;
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Users, roles and permissions, categories" />
+      <PageHeader title="Settings" subtitle="Company, users, roles and permissions, approval rules, categories" />
       <div className="mb-4 flex gap-1 border-b border-border">
-        {(["users", "roles", "categories"] as const).map((t) => (
+        {(["company", "users", "roles", "approvals", "categories"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`-mb-px border-b-2 px-3 py-2 text-sm capitalize ${tab === t ? "border-brand font-medium text-brand" : "border-transparent text-muted"}`}>{t}</button>
         ))}
       </div>
+      {tab === "company" && <Company />}
+      {tab === "approvals" && <ApprovalRules />}
       {tab === "users" && <Users />}
       {tab === "roles" && <Roles />}
       {tab === "categories" && <Categories />}
@@ -198,6 +208,91 @@ function Categories() {
           </ul>
         </div>
       ))}
+    </div>
+  );
+}
+
+function Company() {
+  const { data, loading } = useDoc("settings", "company");
+  const google = useDoc("settings", "google");
+  const params = useSearchParams();
+  const [v, setV] = useState<CompanySettings>({});
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (data) setV(data as CompanySettings); }, [data]);
+  if (loading) return null;
+  const f = (k: keyof CompanySettings, label: string, type = "text", wide = false) => (
+    <div className={wide ? "sm:col-span-2" : ""}>
+      <label className="label">{label}</label>
+      {type === "textarea"
+        ? <textarea className="input min-h-20" value={String(v[k] ?? "")} onChange={(e) => { setV({ ...v, [k]: e.target.value }); setSaved(false); }} />
+        : <input className="input" type={type} value={String(v[k] ?? "")} onChange={(e) => { setV({ ...v, [k]: type === "number" ? Number(e.target.value) : e.target.value }); setSaved(false); }} />}
+    </div>
+  );
+  const status = params.get("google");
+  return (
+    <div className="space-y-4">
+      <div className="card space-y-2 p-4">
+        <h2 className="text-sm font-semibold">Google Drive (PDFs and photos)</h2>
+        {google.data?.connected
+          ? <p className="text-sm">Connected to <b>{String(google.data.email ?? "Google")}</b>. Files are stored in the <b>RheniumOne</b> folder of that account’s My Drive.</p>
+          : <p className="text-sm text-muted">Not connected. Connect the company Google account; the app can only see files it creates.</p>}
+        {status && <p className={`text-sm ${status === "connected" ? "text-ok" : "text-danger"}`}>{status === "connected" ? "Google Drive connected." : `Google: ${status}`}</p>}
+        <button className="btn" disabled={busy} onClick={async () => {
+          setBusy(true);
+          try { const r = await api<{ url: string }>("/api/google/connect", "POST"); window.location.href = r.url; } catch (e) { alert(e instanceof Error ? e.message : String(e)); setBusy(false); }
+        }}>{google.data?.connected ? "Reconnect Google account" : "Connect Google Drive"}</button>
+      </div>
+      <form className="card grid gap-3 p-4 sm:grid-cols-2" onSubmit={async (e) => { e.preventDefault(); await setDoc(doc(db(), "settings", "company"), v, { merge: true }); setSaved(true); }}>
+        <h2 className="text-sm font-semibold sm:col-span-2">Company details (shown on invoices, quotations, POs)</h2>
+        {f("name", "Company name")}
+        {f("state", "State (for CGST/SGST vs IGST)")}
+        {f("address", "Address", "textarea", true)}
+        {f("gstin", "GSTIN")}
+        {f("pan", "PAN")}
+        {f("phone", "Phone")}
+        {f("email", "Email")}
+        {f("bankName", "Bank name")}
+        {f("bankAccount", "Bank account no.")}
+        {f("ifsc", "IFSC")}
+        {f("upi", "UPI ID")}
+        {f("gstInvoicePrefix", "GST invoice prefix (RN → RN/26-27/0001)")}
+        {f("nonGstInvoicePrefix", "Non-GST bill prefix (RN/NG)")}
+        {f("defaultGstRate", "Default GST rate %", "number")}
+        {f("monthlyReviewDay", "Monthly review meeting day (1–28)", "number")}
+        {f("brandColor", "Brand colour (e.g. #1f5fbf)")}
+        {f("invoiceTerms", "Default invoice terms", "textarea", true)}
+        {f("quotationTerms", "Default quotation terms", "textarea", true)}
+        <div><button className="btn-primary">{saved ? "Saved" : "Save company details"}</button></div>
+      </form>
+    </div>
+  );
+}
+
+function ApprovalRules() {
+  const { data } = useDoc("settings", "approvals");
+  const { rows: roles } = useCollection("roles");
+  const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { if (data?.rules) setRules(data.rules as ApprovalRule[]); }, [data]);
+  const set = (i: number, p: Partial<ApprovalRule>) => { setRules(rules.map((r, j) => (j === i ? { ...r, ...p } : r))); setSaved(false); };
+  return (
+    <div className="card overflow-x-auto p-4">
+      <p className="mb-3 text-sm text-muted">Which document needs approval, above what amount, and by which role. Approvers see requests under Approvals. Admin actions don’t need approval.</p>
+      <table className="table">
+        <thead><tr><th>On</th><th>Rule</th><th className="w-36">Above</th><th className="w-44">Approved by</th></tr></thead>
+        <tbody>
+          {rules.map((r, i) => (
+            <tr key={r.type}>
+              <td><input type="checkbox" checked={r.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} /></td>
+              <td>{APPROVAL_LABELS[r.type]}</td>
+              <td>{["po", "claim", "quotationDiscount"].includes(r.type) ? <input className="input !py-1" type="number" value={r.threshold} onChange={(e) => set(i, { threshold: Number(e.target.value) })} /> : <span className="text-muted">always</span>}</td>
+              <td><select className="input !py-1" value={r.role} onChange={(e) => set(i, { role: e.target.value })}>{roles.map((x) => <option key={x.id} value={x.id}>{String(x.name)}</option>)}</select></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button className="btn-primary mt-3" onClick={async () => { await setDoc(doc(db(), "settings", "approvals"), { rules }); setSaved(true); }}>{saved ? "Saved" : "Save rules"}</button>
     </div>
   );
 }
