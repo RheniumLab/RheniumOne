@@ -54,7 +54,7 @@ function PaymentsList({ rows }: { rows: Record<string, unknown>[] }) {
               </td>
               <td>{String(p.mode)}</td>
               <td><GstBadge type={String(p.billingType)} /></td>
-              <td className="text-right tabular-nums">{inr(Number(p.amount))}</td>
+              <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(p.amount))}</td>
               <td className="text-right tabular-nums">{Number(p.tds) ? inr(Number(p.tds)) : "—"}</td>
             </tr>
           ))}
@@ -93,7 +93,7 @@ function Ageing({ invoices }: { invoices: Record<string, unknown>[] }) {
                 <tr key={id}>
                   <td><Link href={`/clients/${id}`} className="text-brand hover:underline">{e.name}</Link></td>
                   {AGE_BUCKETS.map((b) => <td key={b} className="text-right tabular-nums">{e.buckets[b] ? inr(e.buckets[b]) : "—"}</td>)}
-                  <td className="text-right font-medium tabular-nums">{inr(e.total)}</td>
+                  <td className="whitespace-nowrap text-right font-medium tabular-nums">{inr(e.total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -130,7 +130,7 @@ function Tds({ rows, editable }: { rows: Record<string, unknown>[]; editable: bo
         {!groups.length ? <Empty>No TDS recorded.</Empty> : (
           <table className="table">
             <thead><tr><th>Quarter</th><th>Client</th><th className="text-right">TDS</th><th className="text-right">Pending in 26AS</th></tr></thead>
-            <tbody>{groups.map((g) => <tr key={g.client + g.quarter}><td>{g.quarter}</td><td>{g.client}</td><td className="text-right tabular-nums">{inr(g.tds)}</td><td className="text-right tabular-nums">{g.pending ? inr(g.pending) : "—"}</td></tr>)}</tbody>
+            <tbody>{groups.map((g) => <tr key={g.client + g.quarter}><td>{g.quarter}</td><td>{g.client}</td><td className="whitespace-nowrap text-right tabular-nums">{inr(g.tds)}</td><td className="text-right tabular-nums">{g.pending ? inr(g.pending) : "—"}</td></tr>)}</tbody>
           </table>
         )}
       </div>
@@ -145,7 +145,7 @@ function Tds({ rows, editable }: { rows: Record<string, unknown>[]; editable: bo
                   <td>{fmtDate(p.date)}</td>
                   <td>{String(p.clientName)}</td>
                   <td className="text-xs">{((p.allocations ?? []) as Record<string, unknown>[]).map((a) => String(a.number)).join(", ")}</td>
-                  <td className="text-right tabular-nums">{inr(Number(p.tds))}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(p.tds))}</td>
                   <td><input type="checkbox" disabled={!editable} checked={Boolean(p.tds26AS)} onChange={(e) => updateDoc("payments", String(p.id), { tds26AS: e.target.checked }, p)} /></td>
                   <td><input type="checkbox" disabled={!editable} checked={Boolean(p.tdsCertReceived)} onChange={(e) => updateDoc("payments", String(p.id), { tdsCertReceived: e.target.checked }, p)} /></td>
                 </tr>

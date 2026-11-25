@@ -18,6 +18,7 @@ import { addDocRecord, vendorFolder } from "@/lib/docs";
 import { MODES } from "@/lib/money";
 import type { Line } from "@/lib/tax";
 import { PoEditor } from "../editor";
+import { DateInput } from "@/components/date-input";
 
 type PoLine = Line & { received?: number };
 
@@ -190,7 +191,7 @@ function GrnForm({ po, lines, onDone }: { po: Doc; lines: PoLine[]; onDone: () =
     }}>
       <h2 className="text-sm font-semibold">Receive goods</h2>
       <div className="flex flex-wrap gap-3">
-        <div><label className="label">Date</label><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div><label className="label">Date</label><DateInput value={date} onChange={(val) => setDate(val)} /></div>
         <div><label className="label">Into location</label><select className="input" value={location} onChange={(e) => setLocation(e.target.value)}>{["Office", "Store", "Site"].map((l) => <option key={l}>{l}</option>)}</select></div>
       </div>
       <table className="table">
@@ -242,11 +243,11 @@ function BillForm({ po, vendor, onDone }: { po: Doc; vendor: Doc | null; onDone:
     }}>
       <h2 className="text-sm font-semibold sm:col-span-3">Record vendor bill</h2>
       <div><label className="label">Bill number *</label><input className="input" required value={v.billNo} onChange={(e) => setV({ ...v, billNo: e.target.value })} /></div>
-      <div><label className="label">Bill date</label><input className="input" type="date" value={v.billDate} onChange={(e) => setV({ ...v, billDate: e.target.value })} /></div>
-      <div><label className="label">Due date</label><input className="input" type="date" value={v.dueDate} onChange={(e) => setV({ ...v, dueDate: e.target.value })} /></div>
+      <div><label className="label">Bill date</label><DateInput value={v.billDate} onChange={(val) => setV({ ...v, billDate: val })} /></div>
+      <div><label className="label">Due date</label><DateInput value={v.dueDate} onChange={(val) => setV({ ...v, dueDate: val })} /></div>
       <div><label className="label">Taxable value</label><input className="input" type="number" step="0.01" required value={v.taxable} onChange={(e) => setV({ ...v, taxable: e.target.value })} /></div>
       <div><label className="label">Tax (GST)</label><input className="input" type="number" step="0.01" value={v.tax} onChange={(e) => setV({ ...v, tax: e.target.value })} /></div>
-      <div><label className="label">Total</label><div className="input bg-surface-2 tabular-nums">{inr(total)}</div></div>
+      <div><label className="label">Total</label><div className="whitespace-nowrap input bg-surface-2 tabular-nums">{inr(total)}</div></div>
       <div><label className="label">Expense head</label><CategorySelect type={po.projectId ? "project" : "company"} value={v.category} onChange={(x) => setV({ ...v, category: x })} /></div>
       <div className="sm:col-span-2 self-end">
         <label className="btn cursor-pointer"><Camera size={15} /> {file ? file.name : "Bill photo / PDF *"}<input type="file" className="hidden" accept="image/*,application/pdf" capture="environment" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
@@ -295,7 +296,7 @@ function BillRow({ bill, po }: { bill: Doc; po: Doc }) {
             {accounts.filter((a) => a.active !== false).map((a) => <option key={a.id} value={a.id}>{String(a.name)}</option>)}
           </select>
           <select className="input !w-auto !py-1" value={v.mode} onChange={(e) => setV({ ...v, mode: e.target.value })}>{MODES.map((m) => <option key={m}>{m}</option>)}</select>
-          <input className="input !w-auto !py-1" type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} />
+          <DateInput prefix="Paid on" className="!w-auto !py-1" value={v.date} onChange={(val) => setV({ ...v, date: val })} />
           <button className="btn-primary !py-1">Pay</button>
         </form>
       )}

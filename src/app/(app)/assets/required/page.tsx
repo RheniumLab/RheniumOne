@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { useCompany } from "@/lib/business";
 import { createDoc, fmtDate, inr, updateDoc, type Doc } from "@/lib/data";
+import { DateInput } from "@/components/date-input";
 
 const PRIORITIES = [
   { key: "P1", label: "P1 Urgent" },
@@ -81,8 +82,8 @@ export default function RequiredAssetsPage() {
                   <td><div className="font-medium">{String(r.item)}</div><div className="text-xs text-muted">{String(r.spec ?? "")} {r.reason ? `· ${r.reason}` : ""}</div></td>
                   <td className="text-right">{String(r.qty)}</td>
                   <td>{fmtDate(r.neededBy)}</td>
-                  <td className="text-right tabular-nums">{inr(Number(r.estCost))}</td>
-                  <td className="text-right tabular-nums">{inr(rt)}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(r.estCost))}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{inr(rt)}</td>
                   <td>{fits ? <Badge kind="ok">Fits</Badge> : <Badge kind="muted">Wait</Badge>}</td>
                   <td className="whitespace-nowrap text-right">
                     {isAdmin && <><button className="text-muted hover:text-brand" onClick={() => move(r, -1)}><ArrowUp size={14} /></button><button className="ml-1 text-muted hover:text-brand" onClick={() => move(r, 1)}><ArrowDown size={14} /></button></>}
@@ -108,7 +109,7 @@ export default function RequiredAssetsPage() {
                       {PRIORITIES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                     </select>
                   </td>
-                  <td className="text-right tabular-nums">{inr(Number(r.estCost))}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(r.estCost))}</td>
                   <td>{String(projects.find((p) => p.id === r.projectId)?.name ?? "—")}</td>
                   <td>
                     <select className="input !w-auto !py-1" disabled={!can("assets", "approve")} value={String(r.status)} onChange={(e) => updateDoc("assetRequests", r.id, { status: e.target.value, order: e.target.value === "Approved" ? 999 : r.order ?? null }, r)}>
@@ -138,11 +139,11 @@ function RequestForm({ projects, uid, onDone }: { projects: Doc[]; uid?: string;
       <div><label className="label">Quantity</label><input className="input" type="number" value={v.qty} onChange={(e) => setV({ ...v, qty: e.target.value })} /></div>
       <div><label className="label">Estimated cost (₹)</label><input className="input" type="number" required value={v.estCost} onChange={(e) => setV({ ...v, estCost: e.target.value })} /></div>
       <div><label className="label">Priority</label><select className="input" value={v.priority} onChange={(e) => setV({ ...v, priority: e.target.value })}>{PRIORITIES.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}</select></div>
-      <div><label className="label">Needed by</label><input className="input" type="date" value={v.neededBy} onChange={(e) => setV({ ...v, neededBy: e.target.value })} /></div>
+      <div><label className="label">Needed by</label><DateInput value={v.neededBy} onChange={(val) => setV({ ...v, neededBy: val })} /></div>
       <div className="lg:col-span-2"><label className="label">Reason</label><input className="input" value={v.reason} onChange={(e) => setV({ ...v, reason: e.target.value })} /></div>
       <div>
         <label className="label">Project (optional)</label>
-        <select className="input" value={v.projectId} onChange={(e) => setV({ ...v, projectId: e.target.value })}><option value="">—</option>{projects.map((p) => <option key={p.id} value={p.id}>{String(p.name)}</option>)}</select>
+        <select className="input" value={v.projectId} onChange={(e) => setV({ ...v, projectId: e.target.value })}><option value="">Select project</option>{projects.map((p) => <option key={p.id} value={p.id}>{String(p.name)}</option>)}</select>
       </div>
       <div><label className="label">Vendor quotes / links</label><input className="input" value={v.links} onChange={(e) => setV({ ...v, links: e.target.value })} /></div>
       <div><button className="btn-primary">Submit request</button></div>

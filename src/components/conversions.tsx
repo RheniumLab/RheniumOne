@@ -224,8 +224,8 @@ function ClientLinks({ id }: { id: string }) {
       <div className="grid gap-4 md:grid-cols-2">
         {list("Projects", projects.rows, (p) => `/projects/${p.id}`, (p) => `${p.code} · ${p.name}`, (p) => <><GstBadge type={String(p.billingType)} /><Badge>{String(p.status)}</Badge></>)}
         {list("Requirements", reqs.rows, (r) => `/requirements/${r.id}`, (r) => `${r.code} · ${r.title}`, (r) => <Badge>{String(r.status)}</Badge>)}
-        {can("quotations", "view") && list("Quotations", quotes.rows, (q) => `/quotations/${q.id}`, (q) => `${q.number} R${q.rev ?? 0} · ${q.title}`, (q) => <><span className="tabular-nums">{inr(Number(q.total))}</span><Badge>{String(q.status)}</Badge></>)}
-        {can("invoices", "view") && list("Invoices", invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
+        {can("quotations", "view") && list("Quotations", quotes.rows, (q) => `/quotations/${q.id}`, (q) => `${q.number} R${q.rev ?? 0} · ${q.title}`, (q) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(q.total))}</span><Badge>{String(q.status)}</Badge></>)}
+        {can("invoices", "view") && list("Invoices", invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
       </div>
       <DocsPanel filter={{ clientId: id }} />
     </div>
@@ -249,12 +249,12 @@ function VendorLinks({ id }: { id: string }) {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="card p-4">
           <h2 className="mb-2 text-sm font-semibold">Purchase orders</h2>
-          {pos.rows.map((p) => <Link key={p.id} href={`/purchases/${p.id}`} className="flex justify-between py-1 text-sm hover:text-brand"><span>{String(p.number ?? "Draft")} · {fmtDate(p.date)}</span><span className="flex gap-1"><span className="tabular-nums">{inr(Number(p.total))}</span><Badge>{String(p.status)}</Badge></span></Link>)}
+          {pos.rows.map((p) => <Link key={p.id} href={`/purchases/${p.id}`} className="flex justify-between py-1 text-sm hover:text-brand"><span>{String(p.number ?? "Draft")} · {fmtDate(p.date)}</span><span className="flex gap-1"><span className="whitespace-nowrap tabular-nums">{inr(Number(p.total))}</span><Badge>{String(p.status)}</Badge></span></Link>)}
           {!pos.rows.length && <div className="text-sm text-muted">None yet</div>}
         </div>
         <div className="card p-4">
           <h2 className="mb-2 text-sm font-semibold">Bills</h2>
-          {bills.rows.map((b) => <Link key={b.id} href={`/purchases/${b.poId}`} className="flex justify-between py-1 text-sm hover:text-brand"><span>{String(b.billNo)} · due {fmtDate(b.dueDate)}</span><span className="flex gap-1"><span className="tabular-nums">{inr(Number(b.total))}</span><Badge>{String(b.status)}</Badge></span></Link>)}
+          {bills.rows.map((b) => <Link key={b.id} href={`/purchases/${b.poId}`} className="flex justify-between py-1 text-sm hover:text-brand"><span>{String(b.billNo)} · due {fmtDate(b.dueDate)}</span><span className="flex gap-1"><span className="whitespace-nowrap tabular-nums">{inr(Number(b.total))}</span><Badge>{String(b.status)}</Badge></span></Link>)}
           {!bills.rows.length && <div className="text-sm text-muted">None yet</div>}
         </div>
       </div>
@@ -273,7 +273,7 @@ function PriceHistory({ pos, vendorId }: { pos: Record<string, unknown>[]; vendo
         <thead><tr><th>Date</th><th>PO</th>{vendorId ? <th>Item</th> : <th>Vendor</th>}<th className="text-right">Qty</th><th className="text-right">Rate</th></tr></thead>
         <tbody>
           {rows.sort((a, b) => String(b.p.date).localeCompare(String(a.p.date))).map(({ p, l }, i) => (
-            <tr key={i}><td>{fmtDate(p.date)}</td><td>{String(p.number ?? "Draft")}</td><td>{vendorId ? String(l.description) : String(p.vendorName)}</td><td className="text-right">{String(l.qty)}</td><td className="text-right tabular-nums">{inr(Number(l.rate))}</td></tr>
+            <tr key={i}><td>{fmtDate(p.date)}</td><td>{String(p.number ?? "Draft")}</td><td>{vendorId ? String(l.description) : String(p.vendorName)}</td><td className="text-right">{String(l.qty)}</td><td className="whitespace-nowrap text-right tabular-nums">{inr(Number(l.rate))}</td></tr>
           ))}
         </tbody>
       </table>

@@ -25,7 +25,7 @@ export function CategorySelect({ type, value, onChange, required }: { type: "com
         onChange(e.target.value);
       }}
     >
-      <option value="">—</option>
+      <option value="">Select category</option>
       {names.map((n) => <option key={n}>{n}</option>)}
       {value && !names.includes(value) && <option>{value}</option>}
       <option value="__new">+ Add category…</option>

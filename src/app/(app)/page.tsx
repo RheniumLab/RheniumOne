@@ -58,7 +58,7 @@ export default function Dashboard() {
             {visibleAccts.map((a) => (
               <div key={a.id} className="flex justify-between px-4 py-2 text-sm">
                 <span>{String(a.name)}</span>
-                <span className="tabular-nums">{inr(bal.get(a.id))}</span>
+                <span className="whitespace-nowrap tabular-nums">{inr(bal.get(a.id))}</span>
               </div>
             ))}
           </div>
@@ -91,9 +91,9 @@ export default function Dashboard() {
                       <td className={p.targetDate && String(p.targetDate) < new Date().toISOString().slice(0, 10) ? "text-danger" : ""}>{fmtDate(p.targetDate)}</td>
                       {can("cashflow", "view") && (
                         <>
-                          <td className="text-right tabular-nums">{inr(received)}</td>
-                          <td className="text-right tabular-nums">{inr(cost)}</td>
-                          <td className={`text-right tabular-nums ${profit < 0 ? "text-danger" : "text-ok"}`}>{inr(profit)}</td>
+                          <td className="whitespace-nowrap text-right tabular-nums">{inr(received)}</td>
+                          <td className="whitespace-nowrap text-right tabular-nums">{inr(cost)}</td>
+                          <td className={`whitespace-nowrap text-right tabular-nums ${profit < 0 ? "text-danger" : "text-ok"}`}>{inr(profit)}</td>
                         </>
                       )}
                     </tr>
@@ -125,7 +125,7 @@ function Receivables() {
       {byClient.size > 0 && (
         <div className="card mt-3 divide-y divide-border">
           {[...byClient.entries()].sort((a, b) => b[1].due - a[1].due).slice(0, 6).map(([n, e]) => (
-            <Link key={n} href={`/clients/${e.id}`} className="flex justify-between px-4 py-2 text-sm hover:bg-surface-2"><span>{n}</span><span className="tabular-nums">{inr(e.due)}</span></Link>
+            <Link key={n} href={`/clients/${e.id}`} className="flex justify-between px-4 py-2 text-sm hover:bg-surface-2"><span>{n}</span><span className="whitespace-nowrap tabular-nums">{inr(e.due)}</span></Link>
           ))}
         </div>
       )}

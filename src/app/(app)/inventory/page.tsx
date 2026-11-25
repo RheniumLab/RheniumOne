@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { createDoc, fmtDate, inr, today } from "@/lib/data";
 import { LOCATIONS, MOVE_TYPES, useStock } from "@/lib/stock";
+import { DateInput } from "@/components/date-input";
 
 /** §7.4 Stock per item and location, reserved per project, low-stock alerts, every movement logged. */
 export default function InventoryPage() {
@@ -123,7 +124,7 @@ function MoveForm({ items, onDone }: { items: Record<string, unknown>[]; onDone:
       <div className="lg:col-span-2">
         <label className="label">Item</label>
         <select className="input" required value={v.itemId} onChange={(e) => setV({ ...v, itemId: e.target.value })}>
-          <option value="">—</option>
+          <option value="">Select item</option>
           {items.map((it) => <option key={String(it.id)} value={String(it.id)}>{String(it.code)} {String(it.name)}</option>)}
         </select>
       </div>
@@ -133,11 +134,11 @@ function MoveForm({ items, onDone }: { items: Record<string, unknown>[]; onDone:
       <div>
         <label className="label">Project {v.type === "Issue" ? "*" : ""}</label>
         <select className="input" value={v.projectId} onChange={(e) => setV({ ...v, projectId: e.target.value })}>
-          <option value="">—</option>
+          <option value="">Select project</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{String(p.code)} · {String(p.name)}</option>)}
         </select>
       </div>
-      <div><label className="label">Date</label><input className="input" type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} /></div>
+      <div><label className="label">Date</label><DateInput value={v.date} onChange={(val) => setV({ ...v, date: val })} /></div>
       <div className="lg:col-span-2"><label className="label">Note</label><input className="input" value={v.note} onChange={(e) => setV({ ...v, note: e.target.value })} /></div>
       {err && <div className="lg:col-span-4"><ErrorBox>{err}</ErrorBox></div>}
       <div><button className="btn-primary">Save movement</button></div>

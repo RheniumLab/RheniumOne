@@ -39,7 +39,7 @@ export default function QuotationsPage() {
                     <td>{String(q.title)}</td>
                     <td>{String(q.clientName ?? "")}</td>
                     <td><GstBadge type={String(q.billingType)} /></td>
-                    <td className="text-right tabular-nums">{inr(Number(q.total))}</td>
+                    <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(q.total))}</td>
                     <td>{fmtDate(q.validUntil)}</td>
                     <td><Badge>{String(q.status)}</Badge></td>
                   </tr>

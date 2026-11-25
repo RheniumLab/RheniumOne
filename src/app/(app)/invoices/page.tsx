@@ -61,8 +61,8 @@ export default function InvoicesPage() {
                       <td className="whitespace-nowrap">{fmtDate(i.date)}</td>
                       <td>{String(i.clientName ?? "")}</td>
                       <td><GstBadge type={String(i.billingType)} /></td>
-                      <td className="text-right tabular-nums">{inr(Number(i.total))}</td>
-                      <td className="text-right tabular-nums">{inr(bal)}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(i.total))}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(bal)}</td>
                       <td className={`whitespace-nowrap ${late ? "text-danger" : ""}`}>{fmtDate(i.dueDate)}{late ? ` · ${ageDays(i.dueDate)}d late` : ""}</td>
                       <td><Badge>{String(i.status)}</Badge></td>
                     </tr>

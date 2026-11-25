@@ -164,7 +164,7 @@ export default function InvoicePage() {
               <tbody>
                 {payments.rows.map((p) => {
                   const a = ((p.allocations ?? []) as Record<string, unknown>[]).find((x) => x.invoiceId === id);
-                  return <tr key={p.id}><td>{fmtDate(p.date)}</td><td>{String(p.mode)}</td><td className="text-right tabular-nums">{inr(Number(a?.amount ?? 0))}</td><td className="text-right tabular-nums">{inr(Number(a?.tds ?? 0))}</td></tr>;
+                  return <tr key={p.id}><td>{fmtDate(p.date)}</td><td>{String(p.mode)}</td><td className="whitespace-nowrap text-right tabular-nums">{inr(Number(a?.amount ?? 0))}</td><td className="whitespace-nowrap text-right tabular-nums">{inr(Number(a?.tds ?? 0))}</td></tr>;
                 })}
               </tbody>
             </table>

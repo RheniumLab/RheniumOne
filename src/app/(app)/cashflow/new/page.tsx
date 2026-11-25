@@ -10,6 +10,7 @@ import { useCollection } from "@/lib/hooks";
 import { MODES } from "@/lib/money";
 import { createDoc, today } from "@/lib/data";
 import { saveFile } from "@/lib/files";
+import { DateInput } from "@/components/date-input";
 
 export default function NewEntryPage() {
   return (
@@ -133,7 +134,7 @@ function NewEntry() {
               </button>
             ))}
           </div>
-          <div><label className="label">Date *</label><input className="input" type="date" required value={v.date} onChange={(e) => set("date", e.target.value)} /></div>
+          <div><label className="label">Date *</label><DateInput required value={v.date} onChange={(val) => set("date", val)} /></div>
           <div><label className="label">Amount (₹) *</label><input className="input tabular-nums" type="number" step="0.01" min="0.01" required value={v.amount} onChange={(e) => set("amount", e.target.value)} /></div>
           <div>
             <label className="label">For</label>
@@ -145,7 +146,7 @@ function NewEntry() {
             <div>
               <label className="label">Project *</label>
               <select className="input" required value={v.projectId} onChange={(e) => set("projectId", e.target.value)}>
-                <option value="">—</option>
+                <option value="">Select project</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{String(p.code)} · {String(p.name)}</option>)}
               </select>
             </div>
@@ -161,7 +162,7 @@ function NewEntry() {
           <div>
             <label className="label">Account *</label>
             <select className="input" required value={v.accountId} onChange={(e) => set("accountId", e.target.value)}>
-              <option value="">—</option>
+              <option value="">Select account</option>
               {accounts.map((a) => <option key={a.id} value={a.id}>{String(a.name)}</option>)}
             </select>
           </div>
@@ -183,7 +184,7 @@ function NewEntry() {
                 <div>
                   <label className="label">Vendor</label>
                   <select className="input" value={v.vendorId} onChange={(e) => set("vendorId", e.target.value)}>
-                    <option value="">—</option>
+                    <option value="">Select vendor</option>
                     {vendors.map((x) => <option key={x.id} value={x.id}>{String(x.name)}</option>)}
                   </select>
                 </div>

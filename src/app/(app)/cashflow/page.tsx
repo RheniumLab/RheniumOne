@@ -10,6 +10,7 @@ import { useEntries } from "@/lib/money";
 import { fmtDate, inr, softDelete } from "@/lib/data";
 import { openFile } from "@/lib/files";
 import { requestApproval } from "@/lib/business";
+import { DateInput } from "@/components/date-input";
 
 async function deleteEntry(e: Record<string, unknown> & { id: string }, isAdmin: boolean) {
   if (!confirm("Delete this entry? It is marked deleted and stays in the audit log.")) return;
@@ -62,7 +63,7 @@ export default function CashFlowPage() {
       </div>
       <div className="card">
         <div className="flex flex-wrap gap-2 border-b border-border p-3">
-          <input type="month" className="input !w-auto" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <DateInput type="month" prefix="Month" placeholder="All months" className="!w-auto" value={month} onChange={setMonth} />
           <select className="input !w-auto" value={dir} onChange={(e) => setDir(e.target.value)}>
             <option value="">In and out</option><option value="in">In</option><option value="out">Out</option>
           </select>

@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useCollection } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth-context";
 import type { Field } from "@/lib/entities";
+import { DateInput } from "./date-input";
 
 export const OPTION_LABELS: Record<string, string> = { gst: "GST", nonGst: "Non-GST" };
 export const optLabel = (o: string) => OPTION_LABELS[o] ?? o;
@@ -28,13 +29,15 @@ export function FieldInput({ field, value, onChange }: { field: Field; value: un
           required={field.required}
         />
       );
+    case "date":
+      return <DateInput value={String(v)} onChange={(x) => onChange(x)} required={field.required} />;
     case "checkbox":
       return <input type="checkbox" className="mt-2 h-4 w-4" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />;
     case "select": {
       const opts = (field.options ?? []).filter((o) => o !== "nonGst" || nonGst);
       return (
         <select className="input" value={String(v)} onChange={(e) => onChange(e.target.value)} required={field.required}>
-          <option value="">—</option>
+          <option value="">Select {field.label.toLowerCase()}</option>
           {opts.map((o) => (
             <option key={o} value={o}>{optLabel(o)}</option>
           ))}
@@ -66,7 +69,7 @@ function RefSelect({ field, value, onChange }: { field: Field; value: string; on
   const sorted = [...rows].sort((a, b) => String(a[label] ?? "").localeCompare(String(b[label] ?? "")));
   return (
     <select className="input" value={value} onChange={(e) => onChange(e.target.value)} required={field.required}>
-      <option value="">—</option>
+      <option value="">Select {field.label.toLowerCase()}</option>
       {sorted.map((r) => (
         <option key={r.id} value={r.id}>
           {String(r[label] || r.legalName || r.name || r.id)}
@@ -81,7 +84,7 @@ export function UserSelect({ value, onChange, required }: { value: string; onCha
   const { rows } = useCollection("users");
   return (
     <select className="input" value={value} onChange={(e) => onChange(e.target.value)} required={required}>
-      <option value="">—</option>
+      <option value="">Select person</option>
       {rows.filter((u) => u.active).map((u) => (
         <option key={u.id} value={u.id}>{String(u.name)}</option>
       ))}

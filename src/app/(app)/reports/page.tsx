@@ -9,6 +9,7 @@ import { fmtDate, inr, type Doc } from "@/lib/data";
 import { AGE_BUCKETS, ageBucket, ageDays, balances, invoiceDue, useEntries, useTransfers } from "@/lib/money";
 import { useStock, LOCATIONS } from "@/lib/stock";
 import type { Line } from "@/lib/tax";
+import { DateInput } from "@/components/date-input";
 
 type Cell = string | number | null;
 interface Table { title?: string; head: string[]; rows: Cell[][]; money?: number[] }
@@ -87,8 +88,8 @@ export default function ReportsPage() {
         </>} />
       <div className="no-print card flex flex-wrap gap-2 p-3">
         <select className="input !w-auto" value={key} onChange={(e) => setKey(e.target.value as Key)}>{list.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}</select>
-        <input className="input !w-auto" type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
-        <input className="input !w-auto" type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+        <DateInput prefix="From" className="!w-auto" value={f.from} onChange={(val) => setF({ ...f, from: val })} />
+        <DateInput prefix="To" className="!w-auto" value={f.to} onChange={(val) => setF({ ...f, to: val })} />
         <select className="input !w-auto" value={f.projectId} onChange={(e) => setF({ ...f, projectId: e.target.value })}><option value="">All projects</option>{projects.map((p) => <option key={p.id} value={p.id}>{String(p.code)} {String(p.name)}</option>)}</select>
         <select className="input !w-auto" value={f.clientId} onChange={(e) => setF({ ...f, clientId: e.target.value })}><option value="">All clients</option>{clients.map((c) => <option key={c.id} value={c.id}>{String(c.displayName || c.legalName)}</option>)}</select>
         {nonGst && <select className="input !w-auto" value={f.gst} onChange={(e) => setF({ ...f, gst: e.target.value })}><option value="">GST + non-GST</option><option value="gst">GST only</option><option value="nonGst">Non-GST only</option></select>}

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { balances, useEntries, useTransfers } from "@/lib/money";
 import { createDoc, fmtDate, inr, today, updateDoc } from "@/lib/data";
+import { DateInput } from "@/components/date-input";
 
 export default function AccountsPage() {
   const { can, isAdmin, user } = useAuth();
@@ -75,7 +76,7 @@ export default function AccountsPage() {
               <div className="truncate text-sm font-medium">{String(a.name)}</div>
               <div className="text-xs text-muted">{a.kind === "bank" ? "Bank account" : `Cash wallet · ${String(users.find((u) => u.id === a.holderId)?.name ?? "")}`}</div>
             </div>
-            <div className={`text-right font-semibold tabular-nums ${(bal.get(a.id) ?? 0) < 0 ? "text-danger" : ""}`}>{inr(bal.get(a.id))}</div>
+            <div className={`shrink-0 whitespace-nowrap text-right font-semibold tabular-nums ${(bal.get(a.id) ?? 0) < 0 ? "text-danger" : ""}`}>{inr(bal.get(a.id))}</div>
           </div>
         ))}
         {!visible.length && <Empty>No accounts yet.{isAdmin ? " Add a bank account to get started." : ""}</Empty>}
@@ -94,7 +95,7 @@ export default function AccountsPage() {
                     <td>{name(t.fromAccountId)}</td>
                     <td>{name(t.toAccountId)}</td>
                     <td>{String(t.kind)}</td>
-                    <td className="text-right tabular-nums">{inr(Number(t.amount))}</td>
+                    <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(t.amount))}</td>
                     <td><Badge>{t.status === "pending" ? "Awaiting receiver" : String(t.status)}</Badge></td>
                   </tr>
                 ))}
@@ -158,18 +159,18 @@ function TransferForm({ accounts, onDone }: { accounts: Record<string, unknown>[
         onDone();
       }}
     >
-      <div><label className="label">Date</label><input className="input" type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} /></div>
+      <div><label className="label">Date</label><DateInput value={v.date} onChange={(val) => setV({ ...v, date: val })} /></div>
       <div>
         <label className="label">From</label>
         <select className="input" required value={v.from} onChange={(e) => setV({ ...v, from: e.target.value })}>
-          <option value="">—</option>
+          <option value="">Select account</option>
           {fromOptions.map((a) => <option key={String(a.id)} value={String(a.id)}>{String(a.name)}</option>)}
         </select>
       </div>
       <div>
         <label className="label">To</label>
         <select className="input" required value={v.to} onChange={(e) => setV({ ...v, to: e.target.value })}>
-          <option value="">—</option>
+          <option value="">Select account</option>
           {accounts.map((a) => <option key={String(a.id)} value={String(a.id)}>{String(a.name)}</option>)}
         </select>
       </div>

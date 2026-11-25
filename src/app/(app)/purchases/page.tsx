@@ -53,7 +53,7 @@ export default function PurchasesPage() {
                       <td>{fmtDate(p.date)}</td>
                       <td>{String(p.vendorName ?? "")}</td>
                       <td><GstBadge type={String(p.billingType)} /></td>
-                      <td className="text-right tabular-nums">{inr(Number(p.total))}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(p.total))}</td>
                       <td><Badge>{String(p.status)}</Badge></td>
                     </tr>
                   ))}
@@ -100,8 +100,8 @@ export default function PurchasesPage() {
                       <td>{fmtDate(b.billDate)}</td>
                       <td className={late ? "text-danger" : ""}>{fmtDate(b.dueDate)}</td>
                       <td>{b.poId ? <Link className="text-brand hover:underline" href={`/purchases/${b.poId}`}>{String(b.poNumber ?? "PO")}</Link> : "—"}</td>
-                      <td className="text-right tabular-nums">{inr(Number(b.total))}</td>
-                      <td className="text-right tabular-nums">{inr(bal)}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(b.total))}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(bal)}</td>
                       <td><Badge>{String(b.status)}</Badge></td>
                     </tr>
                   );

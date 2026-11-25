@@ -16,7 +16,9 @@ service cloud.firestore {
         || role().get('perms', {}).get(m, {}).get(a, false) == true);
     }
     function seesNonGst() { return active() && (role().get('isAdmin', false) == true || role().get('nonGst', false) == true); }
-    function gstOk(data) { return data.get('billingType', 'gst') != 'nonGst' || seesNonGst(); }
+    // Compared directly (not with .get) so Firestore enforces it on list queries too:
+    // users without non-GST permission must filter billingType == 'gst'.
+    function gstOk(data) { return data.billingType == 'gst' || seesNonGst(); }
     function changedOnly(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
     // Records are never hard-deleted (§10.2); marking deleted needs the delete permission.
     function softDeleting(m) {

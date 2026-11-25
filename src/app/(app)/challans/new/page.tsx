@@ -9,6 +9,7 @@ import { useCollection } from "@/lib/hooks";
 import { fySeries } from "@/lib/business";
 import { createDoc, today } from "@/lib/data";
 import { LOCATIONS, useStock } from "@/lib/stock";
+import { DateInput } from "@/components/date-input";
 
 export default function NewChallanPage() {
   return <Suspense><NewChallan /></Suspense>;
@@ -69,7 +70,7 @@ function NewChallan() {
       <PageHeader title="New delivery challan" back="/challans" />
       <form onSubmit={save} className="space-y-4">
         <div className="card grid gap-3 p-4 sm:grid-cols-3">
-          <div><label className="label">Date</label><input className="input" type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} /></div>
+          <div><label className="label">Date</label><DateInput value={v.date} onChange={(val) => setV({ ...v, date: val })} /></div>
           <div>
             <label className="label">Purpose</label>
             <select className="input" value={v.purpose} onChange={(e) => setV({ ...v, purpose: e.target.value, returnable: e.target.value !== "Material to client site" })}>
@@ -79,7 +80,7 @@ function NewChallan() {
           <div>
             <label className="label">Project</label>
             <select className="input" value={v.projectId} onChange={(e) => setV({ ...v, projectId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Select project</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{String(p.code)} · {String(p.name)}</option>)}
             </select>
           </div>
@@ -90,7 +91,7 @@ function NewChallan() {
           <div>
             <label className="label">{v.partyType === "client" ? "Client" : "Vendor"}</label>
             <select className="input" value={v.partyId} onChange={(e) => pickParty(e.target.value)}>
-              <option value="">—</option>
+              <option value="">{v.partyType === "client" ? "Select client" : "Select vendor"}</option>
               {(v.partyType === "client" ? clients : vendors).map((p) => <option key={p.id} value={p.id}>{String(p.displayName || p.legalName || p.name)}</option>)}
             </select>
           </div>
@@ -98,7 +99,7 @@ function NewChallan() {
           <div><label className="label">Consignee name</label><input className="input" required value={v.consignee} onChange={(e) => setV({ ...v, consignee: e.target.value })} /></div>
           <div className="sm:col-span-2"><label className="label">Delivery address</label><input className="input" value={v.address} onChange={(e) => setV({ ...v, address: e.target.value })} /></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.returnable} onChange={(e) => setV({ ...v, returnable: e.target.checked })} /> Goods expected back</label>
-          {v.returnable && <div><label className="label">Expected return</label><input className="input" type="date" value={v.expectedReturn} onChange={(e) => setV({ ...v, expectedReturn: e.target.value })} /></div>}
+          {v.returnable && <div><label className="label">Expected return</label><DateInput value={v.expectedReturn} onChange={(val) => setV({ ...v, expectedReturn: val })} /></div>}
           <div><label className="label">Vehicle no.</label><input className="input" value={v.vehicle} onChange={(e) => setV({ ...v, vehicle: e.target.value.toUpperCase() })} /></div>
         </div>
         <div className="card overflow-x-auto p-4">

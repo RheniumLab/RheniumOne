@@ -164,7 +164,7 @@ export default function BomPage() {
                         const it = items.find((x) => x.id === e.target.value);
                         set(i, { itemId: e.target.value || null, ...(it ? { description: l.description || String(it.name), unit: String(it.unit ?? l.unit), rate: Number(it.rate ?? l.rate ?? 0) } : {}) });
                       }}>
-                        <option value="">—</option>
+                        <option value="">Select item</option>
                         {items.map((it) => <option key={it.id} value={it.id}>{String(it.code)} {String(it.name)}</option>)}
                       </select>
                     </td>
@@ -176,7 +176,7 @@ export default function BomPage() {
                       </>
                     )}
                     <td><input className="input !py-1 text-right" type="number" step="0.01" disabled={!editable} value={l.rate ?? ""} onChange={(e) => set(i, { rate: Number(e.target.value) })} title={asm ? "Extra cost on top of parts (labour etc.)" : "Estimated unit rate"} /></td>
-                    <td className="text-right tabular-nums">{inr(unit[i])}</td>
+                    <td className="whitespace-nowrap text-right tabular-nums">{inr(unit[i])}</td>
                     <td className="whitespace-nowrap">
                       {editable && (
                         <span className="flex gap-1 text-muted">
@@ -214,12 +214,12 @@ export default function BomPage() {
                       <td><input type="checkbox" checked={sel.has(i)} onChange={(e) => { const s = new Set(sel); if (e.target.checked) s.add(i); else s.delete(i); setSel(s); }} /></td>
                       <td>{l.partNo ? `${l.partNo} · ` : ""}{l.description}</td>
                       <td className="text-right">{totalQty(lines, i)} {l.unit}</td>
-                      <td className="text-right tabular-nums">{inr(Number(l.rate) || 0)}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(l.rate) || 0)}</td>
                       <td>
                         {quotes.map((q, k) => (
                           <div key={k} className="mb-1 flex gap-1">
                             <select className="input !w-40 !py-1" disabled={!editable} value={q.vendorId} onChange={(e) => setQ(quotes.map((x, j) => (j === k ? { ...x, vendorId: e.target.value } : x)))}>
-                              <option value="">—</option>{vendors.map((v) => <option key={v.id} value={v.id}>{String(v.name)}</option>)}
+                              <option value="">Select vendor</option>{vendors.map((v) => <option key={v.id} value={v.id}>{String(v.name)}</option>)}
                             </select>
                             <input className="input !w-24 !py-1 text-right" type="number" step="0.01" placeholder="Price" disabled={!editable} value={q.price || ""} onChange={(e) => setQ(quotes.map((x, j) => (j === k ? { ...x, price: Number(e.target.value) } : x)))} />
                             <input className="input !w-20 !py-1" type="number" placeholder="Days" disabled={!editable} value={q.leadDays ?? ""} onChange={(e) => setQ(quotes.map((x, j) => (j === k ? { ...x, leadDays: Number(e.target.value) } : x)))} />
@@ -230,7 +230,7 @@ export default function BomPage() {
                       </td>
                       <td>
                         <select className="input !py-1" disabled={!editable} value={l.selectedVendorId ?? ""} onChange={(e) => set(i, { selectedVendorId: e.target.value || null })}>
-                          <option value="">—</option>
+                          <option value="">Select vendor</option>
                           {quotes.filter((q) => q.vendorId).map((q) => <option key={q.vendorId} value={q.vendorId}>{vname(q.vendorId)} · {inr(q.price)}</option>)}
                         </select>
                       </td>

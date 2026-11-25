@@ -62,17 +62,28 @@ export function GstBadge({ type }: { type?: string }) {
 
 export function Cell({ value, kind }: { value: unknown; kind?: "money" | "date" | "status" }) {
   if (value === null || value === undefined || value === "") return <span className="text-muted">—</span>;
-  if (kind === "money") return <span className="tabular-nums">{inr(Number(value))}</span>;
+  if (kind === "money") return <span className="whitespace-nowrap tabular-nums">{inr(Number(value))}</span>;
   if (kind === "date") return <>{fmtDate(value)}</>;
   if (kind === "status") return <Badge>{String(value)}</Badge>;
   return <>{String(value)}</>;
 }
 
+/** Smaller text for long amounts so they never spill out of the card. */
+const statSize = (v: ReactNode) => {
+  const n = typeof v === "string" || typeof v === "number" ? String(v).length : 0;
+  return n > 16 ? "text-base" : n > 12 ? "text-lg" : "text-xl";
+};
+
 export function Stat({ label, value, hint, tone: t }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "ok" | "danger" }) {
   return (
-    <div className="card p-4">
-      <div className="text-xs font-medium text-muted">{label}</div>
-      <div className={`mt-1 text-xl font-semibold tabular-nums ${t === "ok" ? "text-ok" : t === "danger" ? "text-danger" : ""}`}>{value}</div>
+    <div className="card min-w-0 p-4">
+      <div className="truncate text-xs font-medium text-muted" title={label}>{label}</div>
+      <div
+        className={`mt-1 font-semibold leading-tight tabular-nums [overflow-wrap:anywhere] ${statSize(value)} ${t === "ok" ? "text-ok" : t === "danger" ? "text-danger" : ""}`}
+        title={typeof value === "string" ? value : undefined}
+      >
+        {value}
+      </div>
       {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   );

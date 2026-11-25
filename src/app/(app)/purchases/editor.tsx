@@ -9,6 +9,7 @@ import { useCollection } from "@/lib/hooks";
 import { useCompany } from "@/lib/business";
 import { createDoc, today, updateDoc } from "@/lib/data";
 import { computeTotals, sameState, type Adjustments, type Line } from "@/lib/tax";
+import { DateInput } from "@/components/date-input";
 
 export interface PoDraft {
   vendorId: string;
@@ -75,7 +76,7 @@ export function PoEditor({ id, initial }: { id?: string; initial?: Partial<PoDra
         <div>
           <label className="label">Vendor *</label>
           <select className="input" required value={v.vendorId} onChange={(e) => set({ vendorId: e.target.value })}>
-            <option value="">—</option>
+            <option value="">Select vendor</option>
             {vendors.map((x) => <option key={x.id} value={x.id}>{String(x.name)}</option>)}
           </select>
         </div>
@@ -87,7 +88,7 @@ export function PoEditor({ id, initial }: { id?: string; initial?: Partial<PoDra
           <div>
             <label className="label">Project *</label>
             <select className="input" value={v.projectId} onChange={(e) => set({ projectId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Select project</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{String(p.code)} · {String(p.name)}</option>)}
             </select>
           </div>
@@ -96,8 +97,8 @@ export function PoEditor({ id, initial }: { id?: string; initial?: Partial<PoDra
           <label className="label">GST / non-GST</label>
           <select className="input" value={v.billingType} onChange={(e) => set({ billingType: e.target.value })}><option value="gst">GST</option>{nonGst && <option value="nonGst">Non-GST</option>}</select>
         </div>
-        <div><label className="label">PO date</label><input className="input" type="date" value={v.date} onChange={(e) => set({ date: e.target.value })} /></div>
-        <div><label className="label">Expected delivery</label><input className="input" type="date" value={v.expectedDate} onChange={(e) => set({ expectedDate: e.target.value })} /></div>
+        <div><label className="label">PO date</label><DateInput value={v.date} onChange={(val) => set({ date: val })} /></div>
+        <div><label className="label">Expected delivery</label><DateInput value={v.expectedDate} onChange={(val) => set({ expectedDate: val })} /></div>
         <div className="sm:col-span-2"><label className="label">Deliver to</label><input className="input" value={v.deliveryAddress} onChange={(e) => set({ deliveryAddress: e.target.value })} /></div>
       </div>
       <div className="card p-4"><LineItems lines={v.lines} onChange={(lines) => set({ lines })} gst={gst} defaultTax={company.defaultGstRate ?? 18} /></div>

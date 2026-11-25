@@ -10,6 +10,7 @@ import { useCompany } from "@/lib/business";
 import { createDoc, today, updateDoc } from "@/lib/data";
 import { computeTotals, sameState, type Adjustments, type Line } from "@/lib/tax";
 import { pad } from "@/lib/data";
+import { DateInput } from "@/components/date-input";
 
 export interface QuotationDraft {
   title: string;
@@ -83,7 +84,7 @@ export function QuotationEditor({ id, initial }: { id?: string; initial?: Partia
             const c = clients.find((x) => x.id === e.target.value);
             set({ clientId: e.target.value, placeOfSupply: String(c?.state ?? ""), billingType: String(c?.billingType ?? v.billingType) });
           }}>
-            <option value="">—</option>
+            <option value="">Select client</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{String(c.displayName || c.legalName)}</option>)}
           </select>
         </div>
@@ -93,8 +94,8 @@ export function QuotationEditor({ id, initial }: { id?: string; initial?: Partia
             <option value="gst">GST</option>{nonGst && <option value="nonGst">Non-GST</option>}
           </select>
         </div>
-        <div><label className="label">Date</label><input className="input" type="date" value={v.date} onChange={(e) => set({ date: e.target.value })} /></div>
-        <div><label className="label">Valid until</label><input className="input" type="date" value={v.validUntil} onChange={(e) => set({ validUntil: e.target.value })} /></div>
+        <div><label className="label">Date</label><DateInput value={v.date} onChange={(val) => set({ date: val })} /></div>
+        <div><label className="label">Valid until</label><DateInput value={v.validUntil} onChange={(val) => set({ validUntil: val })} /></div>
         <div><label className="label">Place of supply</label><input className="input" value={v.placeOfSupply} onChange={(e) => set({ placeOfSupply: e.target.value })} /></div>
       </div>
       <div className="card p-4">

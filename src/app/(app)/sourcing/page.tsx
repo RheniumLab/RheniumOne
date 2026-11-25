@@ -78,9 +78,9 @@ export default function SourcingPage() {
                       <td>{r.line.partNo ? `${r.line.partNo} · ` : ""}{r.line.description}</td>
                       <td className="text-right">{r.qty} {r.line.unit}</td>
                       <td>{r.vendor}</td>
-                      <td className="text-right tabular-nums">{inr(Number(r.line.rate) || 0)}</td>
+                      <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(r.line.rate) || 0)}</td>
                       <td className="text-right tabular-nums">{r.price === null ? "—" : inr(r.price)}</td>
-                      <td className={`text-right tabular-nums ${d && d > 0 ? "text-danger" : d && d < 0 ? "text-ok" : ""}`}>{d === null ? "—" : inr(d)}</td>
+                      <td className={`whitespace-nowrap text-right tabular-nums ${d && d > 0 ? "text-danger" : d && d < 0 ? "text-ok" : ""}`}>{d === null ? "—" : inr(d)}</td>
                     </tr>
                   );
                 })}
@@ -101,7 +101,7 @@ export default function SourcingPage() {
         {!itemId ? <Empty>Pick an item to see what it cost across vendors and projects.</Empty> : !history.length ? <Empty>No purchase orders for this item yet.</Empty> : (
           <table className="table">
             <thead><tr><th>Date</th><th>PO</th><th>Vendor</th><th>Project</th><th className="text-right">Rate</th></tr></thead>
-            <tbody>{history.map((h, i) => <tr key={i}><td>{fmtDate(h.date)}</td><td><Link className="text-brand hover:underline" href={`/purchases/${h.poId}`}>{h.po}</Link></td><td>{h.vendor}</td><td>{h.project}</td><td className="text-right tabular-nums">{inr(h.rate)}</td></tr>)}</tbody>
+            <tbody>{history.map((h, i) => <tr key={i}><td>{fmtDate(h.date)}</td><td><Link className="text-brand hover:underline" href={`/purchases/${h.poId}`}>{h.po}</Link></td><td>{h.vendor}</td><td>{h.project}</td><td className="whitespace-nowrap text-right tabular-nums">{inr(h.rate)}</td></tr>)}</tbody>
           </table>
         )}
       </div>

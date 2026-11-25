@@ -9,6 +9,7 @@ import { useCollection } from "@/lib/hooks";
 import { useCompany } from "@/lib/business";
 import { createDoc, getDocOnce, today, updateDoc } from "@/lib/data";
 import { computeTotals, sameState, type Adjustments, type Line } from "@/lib/tax";
+import { DateInput } from "@/components/date-input";
 
 export interface InvoiceDraft {
   date: string;
@@ -103,7 +104,7 @@ export function InvoiceEditor({ id, initial }: { id?: string; initial?: Partial<
         <div>
           <label className="label">Client *</label>
           <select className="input" required value={v.clientId} onChange={(e) => set({ clientId: e.target.value, placeOfSupply: "" })}>
-            <option value="">—</option>
+            <option value="">Select client</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{String(c.displayName || c.legalName)}</option>)}
           </select>
         </div>
@@ -126,8 +127,8 @@ export function InvoiceEditor({ id, initial }: { id?: string; initial?: Partial<
           <input className="input" value={v.placeOfSupply} onChange={(e) => set({ placeOfSupply: e.target.value })} />
           {gst && <div className="mt-1 text-xs text-muted">{intra ? "Same state: CGST + SGST" : "Other state: IGST"}</div>}
         </div>
-        <div><label className="label">Invoice date</label><input className="input" type="date" value={v.date} onChange={(e) => set({ date: e.target.value })} /></div>
-        <div><label className="label">Due date</label><input className="input" type="date" value={v.dueDate} onChange={(e) => set({ dueDate: e.target.value })} /></div>
+        <div><label className="label">Invoice date</label><DateInput value={v.date} onChange={(val) => set({ date: val })} /></div>
+        <div><label className="label">Due date</label><DateInput value={v.dueDate} onChange={(val) => set({ dueDate: val })} /></div>
       </div>
       <div className="card p-4">
         <h2 className="mb-2 text-sm font-semibold">Items</h2>

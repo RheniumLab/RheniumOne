@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateDoc } from "@/lib/data";
+import { DateInput } from "@/components/date-input";
 
 /** E-way bill details recorded from the government portal (§7.6). */
 export function EwayBill({ id, eway, editable, col = "invoices" }: { id: string; eway: Record<string, string>; editable: boolean; col?: string }) {
@@ -13,7 +14,7 @@ export function EwayBill({ id, eway, editable, col = "invoices" }: { id: string;
       <p className="text-xs text-muted">Generate it on ewaybillgst.gov.in, then record it here.</p>
       <div className="grid grid-cols-2 gap-2">
         <input className="input" placeholder="E-way bill no." disabled={!editable} value={v.no} onChange={(e) => { setV({ ...v, no: e.target.value }); setSaved(false); }} />
-        <input className="input" type="date" disabled={!editable} value={v.date} onChange={(e) => { setV({ ...v, date: e.target.value }); setSaved(false); }} />
+        <DateInput disabled={!editable} value={v.date} onChange={(val) => { setV({ ...v, date: val }); setSaved(false); }} />
         <input className="input" placeholder="Vehicle no." disabled={!editable} value={v.vehicle} onChange={(e) => { setV({ ...v, vehicle: e.target.value.toUpperCase() }); setSaved(false); }} />
         <input className="input" placeholder="Transporter" disabled={!editable} value={v.transporter} onChange={(e) => { setV({ ...v, transporter: e.target.value }); setSaved(false); }} />
       </div>

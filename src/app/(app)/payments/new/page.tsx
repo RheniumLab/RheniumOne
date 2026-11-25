@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection } from "@/lib/hooks";
 import { createDoc, fmtDate, inr, today, updateDoc } from "@/lib/data";
 import { MODES, invoiceDue, tdsQuarter } from "@/lib/money";
+import { DateInput } from "@/components/date-input";
 
 export default function NewPaymentPage() {
   return <Suspense><NewPayment /></Suspense>;
@@ -119,7 +120,7 @@ function NewPayment() {
           <div>
             <label className="label">Client *</label>
             <select className="input" required value={clientId} onChange={(e) => { setClientId(e.target.value); setAlloc({}); }}>
-              <option value="">—</option>
+              <option value="">Select client</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{String(c.displayName || c.legalName)}</option>)}
             </select>
           </div>
@@ -129,12 +130,12 @@ function NewPayment() {
               <option value="gst">GST</option>{nonGst && <option value="nonGst">Non-GST</option>}
             </select>
           </div>
-          <div><label className="label">Date</label><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+          <div><label className="label">Date</label><DateInput value={date} onChange={(val) => setDate(val)} /></div>
           <div><label className="label">Mode</label><select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>{MODES.map((m) => <option key={m}>{m}</option>)}</select></div>
           <div>
             <label className="label">Received into</label>
             <select className="input" required value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              <option value="">—</option>
+              <option value="">Select account</option>
               {accounts.filter((a) => a.active !== false).map((a) => <option key={a.id} value={a.id}>{String(a.name)}</option>)}
             </select>
           </div>
@@ -151,7 +152,7 @@ function NewPayment() {
                   <tr key={i.id}>
                     <td>{String(i.number)}</td>
                     <td>{fmtDate(i.date)}</td>
-                    <td className="text-right tabular-nums">{inr(invoiceDue(i))}</td>
+                    <td className="whitespace-nowrap text-right tabular-nums">{inr(invoiceDue(i))}</td>
                     <td><input className="input !py-1 text-right" type="number" step="0.01" value={alloc[i.id]?.amount ?? ""} onChange={(e) => setAlloc({ ...alloc, [i.id]: { amount: e.target.value, tds: alloc[i.id]?.tds ?? "" } })} /></td>
                     <td><input className="input !py-1 text-right" type="number" step="0.01" value={alloc[i.id]?.tds ?? ""} onChange={(e) => setAlloc({ ...alloc, [i.id]: { amount: alloc[i.id]?.amount ?? "", tds: e.target.value } })} /></td>
                   </tr>
@@ -173,9 +174,9 @@ function NewPayment() {
         </div>
 
         <div className="card flex flex-wrap gap-6 p-4 text-sm">
-          <div>Cash received <b className="tabular-nums">{inr(totalCash)}</b></div>
-          <div>TDS deducted <b className="tabular-nums">{inr(totalTds)}</b></div>
-          <div>Settles <b className="tabular-nums">{inr(totalCash + totalTds - (Number(advance) || 0))}</b> of invoices</div>
+          <div>Cash received <b className="whitespace-nowrap tabular-nums">{inr(totalCash)}</b></div>
+          <div>TDS deducted <b className="whitespace-nowrap tabular-nums">{inr(totalTds)}</b></div>
+          <div>Settles <b className="whitespace-nowrap tabular-nums">{inr(totalCash + totalTds - (Number(advance) || 0))}</b> of invoices</div>
         </div>
         {err && <ErrorBox>{err}</ErrorBox>}
         <button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save payment"}</button>

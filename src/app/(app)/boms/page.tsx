@@ -32,7 +32,7 @@ export default function BomsPage() {
           <div>
             <label className="label">Project</label>
             <select className="input" required value={v.projectId} onChange={(e) => setV({ ...v, projectId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Select project</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{String(p.code)} · {String(p.name)}</option>)}
             </select>
           </div>
@@ -55,7 +55,7 @@ export default function BomsPage() {
                   <td><Badge kind={b.kind === "EBOM" ? "brand" : "muted"}>{String(b.kind)}</Badge></td>
                   <td>Rev {String(b.rev)}</td>
                   <td>{pname(b.projectId) ? `${pname(b.projectId)!.code} ${pname(b.projectId)!.name}` : "—"}</td>
-                  <td className="text-right tabular-nums">{inr(bomTotal((b.lines ?? []) as BomLine[]))}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{inr(bomTotal((b.lines ?? []) as BomLine[]))}</td>
                 </tr>
               ))}
             </tbody>

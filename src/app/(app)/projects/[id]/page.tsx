@@ -17,6 +17,7 @@ import { fmtDate, inr, type Doc } from "@/lib/data";
 import { projectTransform } from "../transform";
 import { DocsPanel } from "@/components/docs-panel";
 import { invoiceDue } from "@/lib/money";
+import { DateInput } from "@/components/date-input";
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -177,7 +178,7 @@ function Tasks({ projectId }: { projectId: string }) {
           <input className="input" placeholder="New task" value={title} onChange={(e) => setTitle(e.target.value)} />
           <input className="input" placeholder="Milestone" value={milestone} onChange={(e) => setMilestone(e.target.value)} />
           <UserSelect value={assignee} onChange={setAssignee} />
-          <input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          <DateInput placeholder="Due date" value={due} onChange={(val) => setDue(val)} />
           <button className="btn-primary"><Plus size={14} /> Add</button>
         </form>
       )}
@@ -248,7 +249,7 @@ function ProjectEntries({ projectId }: { projectId: string }) {
                 <td>{fmtDate(e.date)}</td>
                 <td>{String(e.category ?? "")}</td>
                 <td>{e.direction === "in" ? <Badge kind="ok">In</Badge> : <Badge kind="danger">Out</Badge>}</td>
-                <td className="text-right tabular-nums">{inr(Number(e.amount))}</td>
+                <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(e.amount))}</td>
                 <td><Badge>{String(e.status ?? "approved")}</Badge></td>
               </tr>
             ))}
@@ -301,8 +302,8 @@ function Build({ projectId }: { projectId: string }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {can("boms", "view") && box("BOMs", can("boms", "create") ? "/boms" : null, boms.rows, (b) => `/boms/${b.id}`, (b) => `${b.code} · ${b.name} (Rev ${b.rev})`, (b) => <Badge kind="brand">{String(b.kind)}</Badge>)}
-      {can("purchases", "view") && box("Purchase orders", can("purchases", "create") ? `/purchases/new?projectId=${projectId}` : null, pos.rows, (p) => `/purchases/${p.id}`, (p) => `${p.number ?? "Draft"} · ${p.vendorName}`, (p) => <><span className="tabular-nums">{inr(Number(p.total))}</span><Badge>{String(p.status)}</Badge></>)}
-      {can("invoices", "view") && box("Invoices", can("invoices", "create") ? `/invoices/new?projectId=${projectId}` : null, invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
+      {can("purchases", "view") && box("Purchase orders", can("purchases", "create") ? `/purchases/new?projectId=${projectId}` : null, pos.rows, (p) => `/purchases/${p.id}`, (p) => `${p.number ?? "Draft"} · ${p.vendorName}`, (p) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(p.total))}</span><Badge>{String(p.status)}</Badge></>)}
+      {can("invoices", "view") && box("Invoices", can("invoices", "create") ? `/invoices/new?projectId=${projectId}` : null, invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
       {can("challans", "view") && box("Delivery challans", can("challans", "create") ? `/challans/new?projectId=${projectId}` : null, challans.rows, (c) => `/challans/${c.id}`, (c) => `${c.number} · ${fmtDate(c.date)}`, (c) => <Badge>{String(c.status)}</Badge>)}
     </div>
   );

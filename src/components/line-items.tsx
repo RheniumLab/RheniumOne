@@ -85,7 +85,7 @@ export function LineItems({
                   </td>
                 )}
                 {showCost && <td><input className="input !py-1 text-right" type="number" step="0.01" disabled={readOnly} value={l.cost ?? ""} onChange={(e) => set(i, { cost: Number(e.target.value) })} /></td>}
-                <td className="text-right tabular-nums">{inr(net)}</td>
+                <td className="whitespace-nowrap text-right tabular-nums">{inr(net)}</td>
                 {!readOnly && <td><button type="button" className="text-muted hover:text-danger" onClick={() => onChange(lines.filter((_, j) => j !== i))} aria-label="Remove line"><Trash2 size={14} /></button></td>}
               </tr>
             );
@@ -144,7 +144,7 @@ export function TotalsPanel({ lines, adj, gst, intraState, showCost }: { lines: 
   const row = (k: string, v: number, strong?: boolean) => (
     <div className={`flex justify-between py-0.5 ${strong ? "border-t border-border pt-1.5 font-semibold" : ""}`}>
       <span className={strong ? "" : "text-muted"}>{k}</span>
-      <span className="tabular-nums">{inr(v)}</span>
+      <span className="whitespace-nowrap pl-3 tabular-nums">{inr(v)}</span>
     </div>
   );
   const margin = t.taxable - t.cost;

@@ -11,6 +11,7 @@ import { createDoc, fmtDate, inr, today, updateDoc, type Doc } from "@/lib/data"
 import { openFile, saveFile } from "@/lib/files";
 import { requestApproval } from "@/lib/business";
 import { api } from "@/lib/api";
+import { DateInput } from "@/components/date-input";
 
 async function decide(c: Doc, decision: "approve" | "reject", uid?: string) {
   const comment = decision === "reject" ? prompt("Reason for rejecting?") : "";
@@ -80,7 +81,7 @@ export default function ClaimsPage() {
                   <td>{uname(c.claimant)}</td>
                   <td>{String(c.category)}</td>
                   <td>{String(c.description ?? "")}</td>
-                  <td className="text-right tabular-nums">{inr(Number(c.amount))}</td>
+                  <td className="whitespace-nowrap text-right tabular-nums">{inr(Number(c.amount))}</td>
                   <td><Badge>{String(c.status)}</Badge></td>
                   <td className="whitespace-nowrap text-right">
                     {c.billId ? <button className="mr-2 text-muted hover:text-brand" onClick={() => openFile(String(c.billId))} title="View bill"><Paperclip size={14} /></button> : null}
@@ -127,7 +128,7 @@ function ClaimForm({ onDone }: { onDone: () => void }) {
         }
       }}
     >
-      <div><label className="label">Date</label><input className="input" type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} /></div>
+      <div><label className="label">Date</label><DateInput value={v.date} onChange={(val) => setV({ ...v, date: val })} /></div>
       <div><label className="label">Amount (₹) *</label><input className="input" type="number" step="0.01" min="0.01" required value={v.amount} onChange={(e) => setV({ ...v, amount: e.target.value })} /></div>
       <div>
         <label className="label">For</label>
@@ -137,7 +138,7 @@ function ClaimForm({ onDone }: { onDone: () => void }) {
         <div>
           <label className="label">Project</label>
           <select className="input" required value={v.projectId} onChange={(e) => setV({ ...v, projectId: e.target.value })}>
-            <option value="">—</option>
+            <option value="">Select project</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{String(p.name)}</option>)}
           </select>
         </div>
