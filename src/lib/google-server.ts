@@ -114,7 +114,7 @@ async function findOrCreateFolder(name: string, parent: string | null) {
 
 /** Folder id for a path like "Projects/RP-0001 Pump/Drawings" under RheniumOne. Cached in Firestore. */
 export async function folderFor(path: string) {
-  const parts = [ROOT_FOLDER, ...path.split("/").map(safe).filter(Boolean)];
+  const parts = [ROOT_FOLDER, ...path.split("/").map((p) => p.trim()).filter(Boolean).map(safe)];
   const key = parts.join("/");
   const cacheRef = adminDb().collection("driveFolders").doc(Buffer.from(key).toString("base64url").slice(0, 1400));
   const hit = await cacheRef.get();
