@@ -256,8 +256,8 @@ function Company() {
         {f("bankAccount", "Bank account no.")}
         {f("ifsc", "IFSC")}
         {f("upi", "UPI ID")}
-        {f("gstInvoicePrefix", "GST invoice prefix (RN → RN/26-27/0001)")}
-        {f("nonGstInvoicePrefix", "Non-GST bill prefix (RN/NG)")}
+        {f("gstInvoicePrefix", "GST invoice prefix (RN → RN/261125/001)")}
+        {f("nonGstInvoicePrefix", "Non-GST bill prefix (RN/NG → RN/NG/261125/001)")}
         {f("defaultGstRate", "Default GST rate %", "number")}
         {f("monthlyReviewDay", "Monthly review meeting day (1–28)", "number")}
         {f("brandColor", "Brand colour (e.g. #1f5fbf)")}

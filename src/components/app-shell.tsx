@@ -72,9 +72,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isActive = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
 
+  const item = (active: boolean) =>
+    `flex items-center justify-between rounded-md border-l-2 px-2 py-1.5 transition-colors ${
+      active ? "border-brand bg-white/10 font-medium text-white" : "border-transparent text-sidebar-fg/85 hover:bg-white/5 hover:text-white"
+    }`;
   const nav = (
     <nav className="flex flex-col gap-4 p-3 text-sm">
-      <Link href="/" className={`rounded-md px-2 py-1.5 ${isActive("/") ? "bg-brand/10 font-medium text-brand" : "hover:bg-surface-2"}`}>
+      <Link href="/" className={item(isActive("/"))}>
         Dashboard
       </Link>
       {AREAS.map((area) => {
@@ -82,15 +86,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (!items.length) return null;
         return (
           <div key={area}>
-            <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{area}</div>
+            <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">{area}</div>
             {items.map((m) => (
               <Link
                 key={m.key}
                 href={m.href}
-                className={`flex items-center justify-between rounded-md px-2 py-1.5 ${isActive(m.href) ? "bg-brand/10 font-medium text-brand" : "hover:bg-surface-2"}`}
+                className={item(isActive(m.href))}
               >
                 <span>{m.name}</span>
-                {badges[m.href] ? <span className="rounded-full bg-danger px-1.5 text-[10px] font-semibold text-white">{badges[m.href]}</span> : null}
+                {badges[m.href] ? <span className="rounded-full bg-brand px-1.5 text-[10px] font-semibold text-white">{badges[m.href]}</span> : null}
               </Link>
             ))}
           </div>
@@ -98,9 +102,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       })}
       {isAdmin && (
         <div>
-          <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Admin</div>
-          <Link href="/settings" className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${isActive("/settings") ? "bg-brand/10 font-medium text-brand" : "hover:bg-surface-2"}`}>
-            <Settings size={14} /> Settings
+          <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">Admin</div>
+          <Link href="/settings" className={item(isActive("/settings"))}>
+            <span className="flex items-center gap-2"><Settings size={14} /> Settings</span>
           </Link>
         </div>
       )}
@@ -109,18 +113,36 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 overflow-y-auto border-r border-border bg-surface lg:block">
-        <div className="border-b border-border px-5 py-4 font-semibold">Rhenium One</div>
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 overflow-y-auto bg-sidebar text-sidebar-fg lg:block">
+        <div className="border-b border-white/10 px-5 py-4">
+          <Link href="/" className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/mark-on-dark.png" alt="" className="h-8 w-8" />
+          <span className="leading-tight">
+            <span className="block text-sm font-bold tracking-[0.18em] text-white">RHENIUM</span>
+            <span className="block text-[10px] font-semibold tracking-[0.3em] text-brand">ONE</span>
+          </span>
+        </Link>
+        </div>
+        <div className="bg-brand-gradient h-0.5" />
         {nav}
       </aside>
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-surface">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 font-semibold">
-              Rhenium One
-              <button onClick={() => setOpen(false)} aria-label="Close menu"><X size={18} /></button>
+          <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-sidebar text-sidebar-fg">
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <Link href="/" className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/mark-on-dark.png" alt="" className="h-8 w-8" />
+          <span className="leading-tight">
+            <span className="block text-sm font-bold tracking-[0.18em] text-white">RHENIUM</span>
+            <span className="block text-[10px] font-semibold tracking-[0.3em] text-brand">ONE</span>
+          </span>
+        </Link>
+              <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-sidebar-fg"><X size={18} /></button>
             </div>
+            <div className="bg-brand-gradient h-0.5" />
             {nav}
           </aside>
         </div>
@@ -128,7 +150,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/95 px-4 py-2.5 backdrop-blur">
           <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
-          <span className="font-semibold lg:hidden">Rhenium One</span>
+          <Link href="/" className="flex items-center gap-2 lg:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/mark.png" alt="" className="h-6 w-6 dark:hidden" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/mark-on-dark.png" alt="" className="hidden h-6 w-6 dark:block" />
+            <span className="text-sm font-bold tracking-[0.14em]">RHENIUM <span className="text-brand">ONE</span></span>
+          </Link>
           <div className="flex-1" />
           {queued > 0 && <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs text-brand">{queued} file{queued > 1 ? "s" : ""} to upload</span>}
           {!online && (

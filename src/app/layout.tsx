@@ -10,13 +10,14 @@ export const metadata: Metadata = {
   title: "Rhenium One",
   description: "Rhenium One — in-house ERP",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "Rhenium One", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Rhenium One", statusBarStyle: "black-translucent" },
+  icons: { apple: "/brand/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1f5fbf",
+  themeColor: "#18212b",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { ErrorBox } from "@/components/ui";
+import { BrandScreen } from "@/components/brand-screen";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -28,8 +29,8 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
-      <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-6">
+    <BrandScreen>
+      <form onSubmit={submit} className="space-y-4">
         <div>
           <h1 className="text-xl font-semibold">Set up Rhenium One</h1>
           <p className="text-sm text-muted">Creates the admin login, the starting roles and categories. This works only once.</p>
@@ -41,6 +42,6 @@ export default function SetupPage() {
         {err && <ErrorBox>{err}</ErrorBox>}
         <button className="btn-primary w-full" disabled={busy}>{busy ? "Setting up…" : "Create admin"}</button>
       </form>
-    </div>
+    </BrandScreen>
   );
 }

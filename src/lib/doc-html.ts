@@ -26,19 +26,23 @@ const esc = (v: unknown) =>
 const money = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function shell(company: Company, title: string, body: string) {
-  const brand = company.brandColor || "#1f5fbf";
+  const brand = company.brandColor || "#FF6A00";
+  const charcoal = "#18212B";
+  // Google converts the HTML on its servers, so the logo must be on a public URL (not localhost).
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const logo = origin && !/localhost|127\.0\.0\.1/.test(origin) ? `${origin}/brand/logo.png` : "";
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
 body{font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#16191d;margin:24px}
-h1{font-size:16pt;margin:0;color:${brand}} h2{font-size:12pt;margin:14px 0 6px;color:${brand}}
+h1{font-size:16pt;margin:0;color:${charcoal}} h2{font-size:12pt;margin:14px 0 6px;color:${brand}}
 table{border-collapse:collapse;width:100%} td,th{border:1px solid #cfd5dd;padding:5px 6px;vertical-align:top}
-th{background:#eef2f7;text-align:left;font-size:9.5pt} .r{text-align:right} .muted{color:#5f6873;font-size:9pt}
+th{background:#E9EDF0;color:${charcoal};text-align:left;font-size:9.5pt} .r{text-align:right} .muted{color:#5f6873;font-size:9pt}
 .noborder td{border:none;padding:2px 0} .tot td{border:none;padding:2px 6px}
 </style></head><body>
-<table class="noborder"><tr><td><h1>${esc(company.name || "Rhenium")}</h1>
+<table class="noborder"><tr><td>${logo ? `<img src="${logo}" alt="Rhenium" style="height:56px;margin-bottom:4px"><br>` : ""}<h1>${esc(company.name || "Rhenium")}</h1>
 <div class="muted">${esc(company.address)}</div>
 <div class="muted">${[company.gstin && `GSTIN: ${esc(company.gstin)}`, company.pan && `PAN: ${esc(company.pan)}`, company.phone && esc(company.phone), company.email && esc(company.email)].filter(Boolean).join(" · ")}</div>
-</td><td class="r"><h1>${esc(title)}</h1></td></tr></table>
+</td><td class="r"><h1 style="color:${brand}">${esc(title)}</h1></td></tr></table>
 <hr style="border:none;border-top:2px solid ${brand};margin:10px 0">
 ${body}
 </body></html>`;

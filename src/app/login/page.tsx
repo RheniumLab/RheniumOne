@@ -8,6 +8,7 @@ import { auth, firebaseConfigured } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { logLogin } from "@/lib/data";
 import { ErrorBox } from "@/components/ui";
+import { BrandScreen } from "@/components/brand-screen";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,11 +42,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
-      <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-6">
+    <BrandScreen>
+      <form onSubmit={submit} className="space-y-4">
         <div>
-          <h1 className="text-xl font-semibold">Rhenium One</h1>
-          <p className="text-sm text-muted">Sign in to continue</p>
+          <h1 className="text-center text-lg font-semibold">Sign in to Rhenium One</h1>
         </div>
         {!firebaseConfigured && <ErrorBox>Firebase is not configured. See README.md.</ErrorBox>}
         <div><label className="label">Email</label><input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
@@ -68,6 +68,6 @@ export default function LoginPage() {
           <Link href="/setup" className="block text-center text-sm text-brand hover:underline">First time? Set up Rhenium One →</Link>
         )}
       </form>
-    </div>
+    </BrandScreen>
   );
 }

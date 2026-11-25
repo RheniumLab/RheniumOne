@@ -33,10 +33,20 @@ export const fySeries = (counterPrefix: string, prefix: string, date = new Date(
   return { counter: `${counterPrefix}-${fy}`, field: "number", format: (n) => `${prefix}/${fy}/${pad(n)}` };
 };
 
-export function invoiceSeries(c: CompanySettings, billingType: string, date = new Date()) {
-  return billingType === "nonGst"
-    ? fySeries("inv-nongst", c.nonGstInvoicePrefix || "RN/NG", date)
-    : fySeries("inv-gst", c.gstInvoicePrefix || "RN", date);
+/** YYMMDD of a date, e.g. 25 Nov 2026 → "261125". */
+export const yymmdd = (d: Date) =>
+  `${String(d.getFullYear() % 100).padStart(2, "0")}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+
+/**
+ * Invoice numbers: PREFIX/YYMMDD/001 from the invoice date, running number
+ * restarting each day. GST and non-GST bills have separate series, e.g.
+ * RN/261125/001 and RN/NG/261125/001 (GST allows at most 16 characters).
+ */
+export function invoiceSeries(c: CompanySettings, billingType: string, date = new Date()): CodeSpec {
+  const nonGst = billingType === "nonGst";
+  const prefix = (nonGst ? c.nonGstInvoicePrefix || "RN/NG" : c.gstInvoicePrefix || "RN").replace(/\/+$/, "");
+  const day = yymmdd(date);
+  return { counter: `inv-${nonGst ? "nongst" : "gst"}-${day}`, field: "number", format: (n) => `${prefix}/${day}/${pad(n, 3)}` };
 }
 
 /** Gives an existing document its number (online only, in a transaction). */
