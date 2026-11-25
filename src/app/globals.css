@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #e2e5ea;
+  --text: #16191d;
+  --muted: #5f6873;
+  --brand: #1f5fbf;
+  --brand-fg: #ffffff;
+  --danger: #c62828;
+  --ok: #1b7f3b;
+  --warn: #a86400;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #0f1216;
+    --surface: #161a20;
+    --surface-2: #1d222a;
+    --border: #2a313b;
+    --text: #e8ebef;
+    --muted: #9aa4b0;
+    --brand: #5b9bff;
+    --brand-fg: #0b1220;
+    --danger: #ff6b6b;
+    --ok: #4cc777;
+    --warn: #e0a440;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.input {
+  @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20;
+}
+.label {
+  @apply mb-1 block text-xs font-medium text-muted;
+}
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-surface-2 disabled:opacity-50;
+}
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-fg hover:opacity-90 disabled:opacity-50;
+}
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-danger/40 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50;
+}
+.card {
+  @apply rounded-lg border border-border bg-surface;
+}
+.table {
+  @apply w-full text-sm;
+}
+.table th {
+  @apply border-b border-border px-3 py-2 text-left text-xs font-medium text-muted;
+}
+.table td {
+  @apply border-b border-border px-3 py-2;
+}
+.table tbody tr:hover {
+  @apply bg-surface-2;
 }

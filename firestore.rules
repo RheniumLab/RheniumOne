@@ -1,0 +1,142 @@
+rules_version = '2';
+
+// Rhenium One — role-based access (requirements §2, §9, §10).
+// The admin SDK (Next.js API routes) bypasses these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function active() { return signedIn() && me().active == true; }
+    function role() { return get(/databases/$(database)/documents/roles/$(me().roleId)).data; }
+    function isAdmin() { return active() && role().get('isAdmin', false) == true; }
+    function can(m, a) {
+      return active() && (role().get('isAdmin', false) == true
+        || role().get('perms', {}).get(m, {}).get(a, false) == true);
+    }
+    function seesNonGst() { return active() && (role().get('isAdmin', false) == true || role().get('nonGst', false) == true); }
+    function gstOk(data) { return data.get('billingType', 'gst') != 'nonGst' || seesNonGst(); }
+    // Money entries are never hard-deleted (§10.2); soft delete needs the delete permission.
+    function softDeleting(m) {
+      return request.resource.data.get('deleted', false) == true && resource.data.get('deleted', false) != true
+        ? can(m, 'delete') : true;
+    }
+
+    // ---- Users, roles, settings --------------------------------------
+    match /users/{uid} {
+      allow read: if active() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin();
+    }
+    match /roles/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if active();
+      allow write: if isAdmin();
+    }
+    match /categories/{id} {
+      allow read, create: if active();
+      allow update, delete: if isAdmin();
+    }
+    match /counters/{id} {
+      allow read: if active();
+      allow create: if active() && request.resource.data.seq == 1;
+      allow update: if active() && request.resource.data.seq == resource.data.seq + 1;
+    }
+    match /auditLog/{id} {
+      allow read: if isAdmin();
+      allow create: if active() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // ---- Generic modules ---------------------------------------------
+    match /clients/{id} {
+      allow read: if can('clients', 'view');
+      allow create: if can('clients', 'create');
+      allow update: if can('clients', 'edit') && softDeleting('clients');
+    }
+    match /vendors/{id} {
+      allow read: if can('vendors', 'view');
+      allow create: if can('vendors', 'create');
+      allow update: if can('vendors', 'edit') && softDeleting('vendors');
+    }
+    match /requirements/{id} {
+      allow read: if can('requirements', 'view');
+      allow create: if can('requirements', 'create');
+      allow update: if can('requirements', 'edit') && softDeleting('requirements');
+    }
+    match /ideas/{id} {
+      allow read: if can('ideas', 'view');
+      allow create: if can('ideas', 'create');
+      // Converting an idea (→ requirement → project) updates its stage and links.
+      allow update: if (can('ideas', 'edit') || can('requirements', 'create') || can('projects', 'create')) && softDeleting('ideas');
+    }
+    match /items/{id} {
+      allow read: if can('inventory', 'view');
+      allow create: if can('inventory', 'create');
+      allow update: if can('inventory', 'edit') && softDeleting('inventory');
+    }
+    match /assets/{id} {
+      allow read: if can('assets', 'view');
+      allow create: if can('assets', 'create');
+      allow update: if can('assets', 'edit') && softDeleting('assets');
+    }
+    match /meetings/{id} {
+      allow read: if can('meetings', 'view');
+      allow create: if can('meetings', 'create');
+      allow update: if can('meetings', 'edit') && softDeleting('meetings');
+    }
+
+    // ---- Projects ----------------------------------------------------
+    match /projects/{id} {
+      allow read: if can('projects', 'view') && gstOk(resource.data);
+      allow create: if can('projects', 'create') && gstOk(request.resource.data);
+      allow update: if can('projects', 'edit') && gstOk(request.resource.data) && softDeleting('projects');
+
+      match /tasks/{t} {
+        allow read: if can('projects', 'view');
+        allow write: if can('projects', 'edit');
+      }
+      match /comments/{c} {
+        allow read: if can('projects', 'view');
+        allow create: if can('projects', 'view') && request.resource.data.uid == request.auth.uid;
+      }
+    }
+
+    // ---- Money -------------------------------------------------------
+    function ownWallet(data) { return data.get('accountHolder', null) == request.auth.uid; }
+
+    match /accounts/{id} {
+      allow read: if active();
+      allow create, update: if isAdmin();
+    }
+    match /entries/{id} {
+      // Cash-flow viewers see all (non-GST only with permission); everyone sees their own wallet.
+      allow read: if (can('cashflow', 'view') && gstOk(resource.data)) || (active() && ownWallet(resource.data));
+      allow create: if (can('cashflow', 'create') && gstOk(request.resource.data))
+        || (can('custody', 'create') && ownWallet(request.resource.data));
+      allow update: if can('cashflow', 'edit') && gstOk(request.resource.data) && softDeleting('cashflow');
+    }
+    match /transfers/{id} {
+      allow read: if can('custody', 'approve')
+        || (active() && (resource.data.fromHolder == request.auth.uid || resource.data.toHolder == request.auth.uid));
+      allow create: if can('custody', 'create')
+        && (can('cashflow', 'create') || request.resource.data.fromHolder == request.auth.uid);
+      // Only the receiver confirms a handover; custody approvers can fix records.
+      allow update: if can('custody', 'approve')
+        || (active() && resource.data.toHolder == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedAt', 'updatedAt', 'updatedBy']));
+    }
+    match /claims/{id} {
+      allow read: if can('claims', 'approve') || (active() && resource.data.claimant == request.auth.uid);
+      allow create: if can('claims', 'create') && request.resource.data.claimant == request.auth.uid
+        && request.resource.data.status == 'submitted';
+      allow update: if can('claims', 'approve')
+        || (can('cashflow', 'create') && resource.data.status == 'approved');
+    }
+    match /attachments/{id} {
+      allow read: if active() && (gstOk(resource.data) || resource.data.uid == request.auth.uid);
+      allow create: if active() && request.resource.data.uid == request.auth.uid;
+    }
+  }
+}
