@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AREAS, MODULES } from "@/lib/modules";
 import { firebaseConfigured } from "@/lib/firebase";
 import { Spinner } from "./ui";
+import { InstallApp } from "./install-app";
 import { where } from "firebase/firestore";
 import { useCollection } from "@/lib/hooks";
 import { flushOutbox, pendingUploads } from "@/lib/files";
@@ -165,6 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           )}
           <span className="hidden text-sm text-muted sm:inline">{profile.name} · {role.name}</span>
+          <InstallApp />
           <button className="btn !px-2 !py-1.5" onClick={logout} title="Sign out"><LogOut size={15} /></button>
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
