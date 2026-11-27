@@ -33,6 +33,8 @@ export interface Field {
   /** Only shown when this returns true for the current form values. */
   when?: (v: Record<string, unknown>) => boolean;
   wide?: boolean;
+  /** Money information: hidden from roles without "Can see money". */
+  money?: boolean;
 }
 
 export interface EntityDef {
@@ -49,6 +51,10 @@ export interface EntityDef {
   gstAware?: boolean;
   /** Default filters/tabs on the list page. */
   statusField?: string;
+  /** Records carry attached files (with headings and versions) instead of long text. */
+  attachments?: boolean;
+  /** Drive folder (under RheniumOne) for this record's files. */
+  folder?: (d: Record<string, unknown>) => string;
 }
 
 const YN = ["Yes", "No"];
@@ -154,23 +160,22 @@ export const ENTITIES: Record<string, EntityDef> = {
     title: (d) => String(d.title || ""),
     code: { counter: "requirement", field: "code", format: (n) => `RQ-${pad(n)}` },
     statusField: "status",
+    attachments: true,
+    folder: (d) => `Sales/Requirements/${d.code ?? ""} ${d.title ?? ""}`,
     fields: [
+      { name: "title", label: "Heading", type: "text", required: true, help: "A short name to identify it, e.g. “Panel retrofit — Plant 2”" },
       { name: "kind", label: "Kind", type: "select", options: ["Client", "Internal"], default: "Client" },
-      { name: "title", label: "Title", type: "text", required: true },
       { name: "clientId", label: "Client", type: "ref", ref: { collection: "clients", label: "displayName" }, when: (v) => v.kind !== "Internal" },
       { name: "ideaId", label: "Product idea", type: "ref", ref: { collection: "ideas", label: "title" }, when: (v) => v.kind === "Internal" },
       { name: "status", label: "Status", type: "select", options: ["New", "Under study", "Proposal sent", "Approved", "Converted to project", "Closed - won", "Closed - lost", "Dropped"], default: "New" },
       { name: "targetDate", label: "Target date", type: "date" },
-      { name: "description", label: "Description", type: "textarea", wide: true },
-      { name: "specifications", label: "Specifications / features", type: "textarea", wide: true },
-      { name: "quantities", label: "Quantities", type: "text" },
-      { name: "targetUsers", label: "Target users", type: "text", when: (v) => v.kind === "Internal" },
-      { name: "targetCost", label: "Target cost", type: "money", when: (v) => v.kind === "Internal" },
-      { name: "sellingPrice", label: "Target selling price", type: "money", when: (v) => v.kind === "Internal" },
+      { name: "targetCost", label: "Target cost", type: "money", money: true, when: (v) => v.kind === "Internal" },
+      { name: "sellingPrice", label: "Target selling price", type: "money", money: true, when: (v) => v.kind === "Internal" },
+      { name: "notes", label: "Notes", type: "textarea", wide: true },
     ],
     columns: [
       { field: "code", label: "Code" },
-      { field: "title", label: "Title" },
+      { field: "title", label: "Heading" },
       { field: "kind", label: "Kind" },
       { field: "targetDate", label: "Target", kind: "date" },
       { field: "status", label: "Status", kind: "status" },
@@ -183,26 +188,54 @@ export const ENTITIES: Record<string, EntityDef> = {
     singular: "Proposal",
     plural: "Proposals",
     basePath: "/proposals",
-    title: (d) => `${d.title ?? ""} · R${d.rev ?? 0}`,
+    title: (d) => String(d.title || ""),
     code: { counter: "proposal", field: "code", format: (n) => `PR-${pad(n)}` },
     statusField: "status",
+    attachments: true,
+    folder: (d) => `Sales/Proposals/${d.code ?? ""} ${d.title ?? ""}`,
     fields: [
-      { name: "title", label: "Title", type: "text", required: true },
+      { name: "title", label: "Heading", type: "text", required: true },
       { name: "clientId", label: "Client", type: "ref", ref: { collection: "clients", label: "displayName" }, required: true },
       { name: "requirementId", label: "Requirement", type: "ref", ref: { collection: "requirements", label: "title" } },
       { name: "status", label: "Status", type: "select", options: ["Draft", "Sent", "Accepted", "Rejected"], default: "Draft" },
-      { name: "rev", label: "Revision (R)", type: "number", default: 0 },
       { name: "validUntil", label: "Valid until", type: "date" },
-      { name: "scope", label: "Scope", type: "textarea", wide: true },
-      { name: "approach", label: "Technical approach", type: "textarea", wide: true },
-      { name: "deliverables", label: "Deliverables", type: "textarea", wide: true },
-      { name: "timeline", label: "Timeline", type: "textarea", wide: true },
-      { name: "terms", label: "Terms", type: "textarea", wide: true },
+      { name: "notes", label: "Notes", type: "textarea", wide: true },
     ],
     columns: [
       { field: "code", label: "Code" },
-      { field: "title", label: "Title" },
-      { field: "rev", label: "Rev" },
+      { field: "title", label: "Heading" },
+      { field: "validUntil", label: "Valid until", kind: "date" },
+      { field: "status", label: "Status", kind: "status" },
+    ],
+  },
+
+  quotations: {
+    module: "quotations",
+    collection: "quotations",
+    singular: "Quotation",
+    plural: "Quotations",
+    basePath: "/quotations",
+    title: (d) => String(d.title || ""),
+    code: { counter: "quotation", field: "number", format: (n) => `RQ/${pad(n)}` },
+    gstAware: true,
+    statusField: "status",
+    attachments: true,
+    folder: (d) => `Sales/Quotations/${String(d.number ?? "").replace(/\//g, "-")} ${d.title ?? ""}`,
+    fields: [
+      { name: "title", label: "Heading", type: "text", required: true },
+      { name: "clientId", label: "Client", type: "ref", ref: { collection: "clients", label: "displayName" }, required: true },
+      { name: "requirementId", label: "Requirement", type: "ref", ref: { collection: "requirements", label: "title" } },
+      { name: "proposalId", label: "Proposal", type: "ref", ref: { collection: "proposals", label: "title" } },
+      { name: "value", label: "Quotation value (before GST)", type: "money", money: true, help: "Used for the project value and the sales pipeline" },
+      { name: "billingType", label: "Billing type", type: "select", options: ["gst", "nonGst"], default: "gst" },
+      { name: "validUntil", label: "Valid until", type: "date" },
+      { name: "status", label: "Status", type: "select", options: ["Draft", "Sent", "Accepted", "Rejected", "Expired"], default: "Draft" },
+      { name: "notes", label: "Notes", type: "textarea", wide: true },
+    ],
+    columns: [
+      { field: "number", label: "Number" },
+      { field: "title", label: "Heading" },
+      { field: "value", label: "Value", kind: "money" },
       { field: "validUntil", label: "Valid until", kind: "date" },
       { field: "status", label: "Status", kind: "status" },
     ],
@@ -224,7 +257,7 @@ export const ENTITIES: Record<string, EntityDef> = {
       { name: "description", label: "Description", type: "textarea", wide: true },
       { name: "problem", label: "Problem it solves", type: "textarea", wide: true },
       { name: "targetCustomers", label: "Target customers", type: "text" },
-      { name: "roughCost", label: "Rough cost estimate", type: "money" },
+      { name: "roughCost", label: "Rough cost estimate", type: "money", money: true },
       { name: "roughTime", label: "Rough time estimate", type: "text" },
       { name: "links", label: "Links", type: "textarea", wide: true },
     ],
@@ -352,9 +385,9 @@ export const ENTITIES: Record<string, EntityDef> = {
       { name: "managerId", label: "Project manager", type: "users" },
       { name: "startDate", label: "Start date", type: "date" },
       { name: "targetDate", label: "Target date", type: "date" },
-      { name: "value", label: "Project value", type: "money", when: (v) => v.projectType !== "Internal product" },
-      { name: "budget", label: "Development budget", type: "money", when: (v) => v.projectType === "Internal product" },
-      { name: "billingType", label: "Billing type", type: "select", options: ["gst", "nonGst"], default: "gst" },
+      { name: "value", label: "Project value", type: "money", money: true, when: (v) => v.projectType !== "Internal product" },
+      { name: "budget", label: "Development budget", type: "money", money: true, when: (v) => v.projectType === "Internal product" },
+      { name: "billingType", label: "Billing type", type: "select", options: ["gst", "nonGst"], default: "gst", money: true },
       { name: "scope", label: "Scope", type: "textarea", wide: true },
       { name: "repos", label: "Code repositories", type: "list", wide: true, fields: [
         { name: "url", label: "Repository URL", type: "url" },

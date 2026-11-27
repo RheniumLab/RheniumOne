@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCollection, useDoc } from "@/lib/hooks";
 import { fmtDate, softDelete, updateDoc } from "@/lib/data";
 import { openFile, saveFile } from "@/lib/files";
-import { addDocRecord, addDocVersion, clientFolder, DEFAULT_DOC_FOLDERS, projectFolder, type DocVersion } from "@/lib/docs";
+import { addDocRecord, addDocVersion, clientFolder, DEFAULT_DOC_FOLDERS, isCommercialFolder, projectFolder, type DocVersion } from "@/lib/docs";
 import { Badge, Empty } from "./ui";
 
 /**
@@ -16,10 +16,16 @@ import { Badge, Empty } from "./ui";
  * camera upload. Files are stored in Google Drive under RheniumOne.
  */
 export function DocsPanel({ filter }: { filter: { projectId?: string; clientId?: string } }) {
-  const { can } = useAuth();
+  const { can, money } = useAuth();
   const key = filter.projectId ? "projectId" : "clientId";
   const val = (filter.projectId ?? filter.clientId)!;
-  const { rows } = useCollection("docs", [where(key, "==", val)], { gstAware: true, enabled: can("documents", "view") }, [key, val]);
+  // Without "Can see money", only non-commercial documents are queried (the rules require it).
+  const { rows } = useCollection(
+    "docs",
+    money ? [where(key, "==", val)] : [where(key, "==", val), where("commercial", "==", false)],
+    { gstAware: true, enabled: can("documents", "view") },
+    [key, val, money],
+  );
   const owner = useDoc(filter.projectId ? "projects" : "clients", val);
   const [folder, setFolder] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -27,7 +33,7 @@ export function DocsPanel({ filter }: { filter: { projectId?: string; clientId?:
 
   if (!can("documents", "view")) return null;
   const custom = (owner.data?.docFolders as string[] | undefined) ?? DEFAULT_DOC_FOLDERS;
-  const folders = Array.from(new Set([...custom, ...rows.map((r) => String(r.folder))])).filter(Boolean);
+  const folders = Array.from(new Set([...custom, ...rows.map((r) => String(r.folder))])).filter((f) => f && (money || !isCommercialFolder(f)));
   const shown = rows.filter((r) => !folder || r.folder === folder).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const driveBase = filter.projectId ? projectFolder(owner.data) : clientFolder(owner.data);
   const billingType = String(owner.data?.billingType ?? "gst");
@@ -43,7 +49,7 @@ export function DocsPanel({ filter }: { filter: { projectId?: string; clientId?:
         else {
           const same = rows.find((r) => r.name === f.name && r.folder === target);
           if (same) await addDocVersion(same.id, { fileId, name: f.name, size: f.size, mime: f.type });
-          else await addDocRecord({ name: f.name, folder: target, fileId, size: f.size, mime: f.type, billingType, ...(filter.projectId ? { projectId: filter.projectId, clientId: (owner.data?.clientId as string) ?? null } : { clientId: filter.clientId }) });
+          else await addDocRecord({ name: f.name, folder: target, fileId, size: f.size, mime: f.type, billingType, commercial: isCommercialFolder(target), ...(filter.projectId ? { projectId: filter.projectId, clientId: (owner.data?.clientId as string) ?? null } : { clientId: filter.clientId }) });
         }
       }
     } catch (e) {

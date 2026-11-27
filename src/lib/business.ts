@@ -112,7 +112,6 @@ export const APPROVAL_LABELS: Record<ApprovalType, string> = {
 export const DEFAULT_RULES: ApprovalRule[] = [
   { type: "po", threshold: 50000, role: "admin", enabled: true },
   { type: "claim", threshold: 0, role: "admin", enabled: true },
-  { type: "quotationDiscount", threshold: 10, role: "admin", enabled: true },
   { type: "invoiceCancel", threshold: 0, role: "admin", enabled: true },
   { type: "entryDelete", threshold: 0, role: "admin", enabled: true },
 ];

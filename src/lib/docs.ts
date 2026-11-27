@@ -11,6 +11,10 @@ export const vendorFolder = (v?: Record<string, unknown> | null) => `Vendors/${v
 
 export const DEFAULT_DOC_FOLDERS = ["Drawings", "Commercial", "Reports", "Photos", "Agreements", "Correspondence"];
 
+/** Folders holding money documents: hidden from roles without "Can see money". */
+export const COMMERCIAL_FOLDERS = ["Commercial", "Invoices", "Quotations", "Proposals", "Purchase orders"];
+export const isCommercialFolder = (f: string) => COMMERCIAL_FOLDERS.some((c) => c.toLowerCase() === f.trim().toLowerCase());
+
 export interface DocVersion {
   fileId: string;
   driveId?: string | null;
@@ -34,11 +38,14 @@ export async function addDocRecord(o: {
   billingType?: string;
   size?: number;
   mime?: string;
+  /** Money document (invoice, quotation, PO…); defaults from the folder. */
+  commercial?: boolean;
 }) {
   const u = auth().currentUser;
   return createDoc("docs", {
     name: o.name, folder: o.folder, projectId: o.projectId ?? null, clientId: o.clientId ?? null,
     linked: o.linked ?? null, billingType: o.billingType ?? "gst",
+    commercial: o.commercial ?? (isCommercialFolder(o.folder) || ["invoices", "quotations", "pos", "purchaseBills", "payments"].includes(o.linked?.col ?? "")),
     versions: [{ fileId: o.fileId, driveId: o.driveId ?? null, name: o.name, uid: u?.uid, by: u?.displayName || u?.email, at: new Date().toISOString(), size: o.size ?? null, mime: o.mime ?? null }],
   });
 }

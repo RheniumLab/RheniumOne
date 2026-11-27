@@ -19,6 +19,8 @@ service cloud.firestore {
     // Compared directly (not with .get) so Firestore enforces it on list queries too:
     // users without non-GST permission must filter billingType == 'gst'.
     function gstOk(data) { return data.billingType == 'gst' || seesNonGst(); }
+    // "Can see money": project values, commercial documents, figures (role switch).
+    function seesMoney() { return active() && (role().get('isAdmin', false) == true || role().get('money', false) == true); }
     function changedOnly(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
     // Records are never hard-deleted (§10.2); marking deleted needs the delete permission.
     function softDeleting(m) {
@@ -123,7 +125,9 @@ service cloud.firestore {
       allow read: if can('projects', 'view') || (active() && resource.data.assignee == request.auth.uid);
     }
     match /docs/{id} {
-      allow read: if can('documents', 'view') && gstOk(resource.data);
+      // Commercial documents (invoices, quotations, POs…) only for roles that can see money;
+      // others must query commercial == false.
+      allow read: if can('documents', 'view') && gstOk(resource.data) && (seesMoney() || resource.data.commercial == false);
       allow create: if active();
       allow update: if (can('documents', 'edit') && softDeleting('documents'))
         || (can('documents', 'create') && changedOnly(['versions', 'updatedAt', 'updatedBy']))

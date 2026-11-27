@@ -243,12 +243,12 @@ function Report({ k, f, projects, onTables }: { k: Key; f: Filters; projects: Do
       case "pipeline": {
         const R = reqs.rows.filter(clientOk);
         const count = (xs: Doc[], st: string, field = "status") => xs.filter((x) => x[field] === st).length;
-        const Q = quotes.rows.filter((q) => clientOk(q) && inRange(q.date, f) && gstOk(q, f));
+        const Q = quotes.rows.filter((q) => clientOk(q) && inRange(q.date ?? q.createdAt?.toDate?.().toISOString?.().slice(0, 10), f) && gstOk(q, f));
         const won = count(Q, "Accepted"), lost = count(Q, "Rejected");
         return [
           { title: "Requirements", head: ["Status", "Count"], rows: ["New", "Under study", "Proposal sent", "Closed - won", "Closed - lost"].map((s) => [s, count(R, s)]) },
           { title: "Proposals", head: ["Status", "Count"], rows: ["Draft", "Sent", "Accepted", "Rejected"].map((s) => [s, count(props.rows.filter(clientOk), s)]) },
-          { title: "Quotations", head: ["Status", "Count", "Value"], rows: [...["Draft", "Sent", "Accepted", "Rejected"].map((s) => [s, count(Q, s), Q.filter((q) => q.status === s).reduce((a, q) => a + Number(q.total || 0), 0)] as Cell[]), ["Win rate", won + lost ? `${Math.round((won / (won + lost)) * 100)}%` : "—", null]], money: [2] },
+          { title: "Quotations", head: ["Status", "Count", "Value"], rows: [...["Draft", "Sent", "Accepted", "Rejected", "Expired"].map((s) => [s, count(Q, s), Q.filter((q) => q.status === s).reduce((a, q) => a + Number(q.value ?? q.taxable ?? 0), 0)] as Cell[]), ["Win rate", won + lost ? `${Math.round((won / (won + lost)) * 100)}%` : "—", null]], money: [2] },
         ];
       }
       case "status": {

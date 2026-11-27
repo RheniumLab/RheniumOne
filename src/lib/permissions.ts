@@ -11,6 +11,8 @@ export interface Role {
   isAdmin?: boolean;
   /** Can see non-GST data. Separate from module permissions (requirements §2). */
   nonGst: boolean;
+  /** Can see money: project values and budgets, project money view, commercial documents, figures in meetings. */
+  money?: boolean;
   perms: Perms;
 }
 
@@ -30,6 +32,7 @@ export function can(role: Role | null | undefined, module: ModuleKey, action: Ac
 }
 
 export const seesNonGst = (role: Role | null | undefined) => Boolean(role?.isAdmin || role?.nonGst);
+export const seesMoney = (role: Role | null | undefined) => Boolean(role?.isAdmin || role?.money);
 
 const all = (): ModulePerms => ({ view: true, create: true, edit: true, delete: true, approve: true });
 const work = (): ModulePerms => ({ view: true, create: true, edit: true });
@@ -45,6 +48,7 @@ export function defaultRoles(): Role[] {
       id: "accounts",
       name: "Accounts",
       nonGst: false,
+      money: true,
       perms: {
         ...everyoneClaims,
         clients: work(), vendors: work(), invoices: work(), tds: work(), cashflow: work(),
@@ -56,6 +60,7 @@ export function defaultRoles(): Role[] {
       id: "pm",
       name: "Project Manager",
       nonGst: false,
+      money: true,
       perms: {
         ...everyoneClaims,
         clients: viewOnly(), requirements: work(), proposals: work(), quotations: work(),
@@ -67,7 +72,8 @@ export function defaultRoles(): Role[] {
       id: "engineer",
       name: "Engineer",
       nonGst: false,
-      perms: { ...everyoneClaims, projects: work(), documents: work(), ideas: work(), boms: work(), sourcing: work() },
+      // Tasks, milestones and project documents only; no money (BOM rates and sourcing are money too).
+      perms: { ...everyoneClaims, projects: work(), documents: work(), ideas: work() },
     },
     {
       id: "developer",
@@ -80,6 +86,7 @@ export function defaultRoles(): Role[] {
       id: "auditor",
       name: "Auditor",
       nonGst: false,
+      money: true,
       perms: {
         invoices: viewOnly(), tds: viewOnly(), cashflow: viewOnly(), purchases: viewOnly(),
         clients: viewOnly(), vendors: viewOnly(), reports: viewOnly(), documents: viewOnly(),

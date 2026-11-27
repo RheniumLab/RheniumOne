@@ -62,7 +62,7 @@ export async function buildSnapshot(nonGst: boolean): Promise<Snapshot> {
     pipeline: {
       requirementsOpen: reqs.filter((r) => ["New", "Under study", "Proposal sent"].includes(String(r.status))).length,
       quotationsSent: quotes.filter((q) => q.status === "Sent").length,
-      quotationsSentValue: quotes.filter((q) => q.status === "Sent").reduce((s, q) => s + Number(q.total || 0), 0),
+      quotationsSentValue: quotes.filter((q) => q.status === "Sent").reduce((s, q) => s + Number(q.value ?? q.taxable ?? 0), 0),
       won: quotes.filter((q) => q.status === "Accepted").length,
       lost: quotes.filter((q) => q.status === "Rejected").length,
     },

@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db, firebaseConfigured } from "./firebase";
-import { can, seesNonGst, type Action, type Role, type UserProfile } from "./permissions";
+import { can, seesMoney, seesNonGst, type Action, type Role, type UserProfile } from "./permissions";
 import type { ModuleKey } from "./modules";
 
 interface AuthState {
@@ -14,6 +14,8 @@ interface AuthState {
   role: Role | null;
   can: (m: ModuleKey, a: Action) => boolean;
   nonGst: boolean;
+  /** Can see money (project values, commercial documents, figures). */
+  money: boolean;
   isAdmin: boolean;
   logout: () => Promise<void>;
 }
@@ -77,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: activeRole,
     can: (m, a) => can(activeRole, m, a),
     nonGst: seesNonGst(activeRole),
+    money: seesMoney(activeRole),
     isAdmin: Boolean(activeRole?.isAdmin),
     logout: () => signOut(auth()),
   };

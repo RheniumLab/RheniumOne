@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { LogOut, Menu, Settings, X, WifiOff } from "lucide-react";
@@ -80,7 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = (
     <nav className="flex flex-col gap-4 p-3 text-sm">
       <Link href="/" className={item(isActive("/"))}>
-        Dashboard
+        <span>Dashboard</span>
+        <Pending />
       </Link>
       {AREAS.map((area) => {
         const items = MODULES.filter((m) => m.area === area && can(m.key, "view"));
@@ -95,6 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={item(isActive(m.href))}
               >
                 <span>{m.name}</span>
+                <Pending />
                 {badges[m.href] ? <span className="rounded-full bg-brand px-1.5 text-[10px] font-semibold text-white">{badges[m.href]}</span> : null}
               </Link>
             ))}
@@ -106,6 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">Admin</div>
           <Link href="/settings" className={item(isActive("/settings"))}>
             <span className="flex items-center gap-2"><Settings size={14} /> Settings</span>
+            <Pending />
           </Link>
         </div>
       )}
@@ -173,4 +176,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
+}
+
+/** Small spinner on the menu item you clicked, while the page loads. */
+function Pending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span className="ml-auto mr-1 h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-brand border-t-transparent" aria-label="Loading" /> : null;
 }

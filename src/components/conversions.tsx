@@ -87,53 +87,32 @@ export function ConversionActions({ collection, id, data }: { collection: string
   }
 
   const out: React.ReactNode[] = [];
-  // Requirement → proposal / quotation (§5).
+  // Requirement → proposal / quotation (§5): opens the new record pre-filled, ready to attach files.
+  const q = (p: Record<string, unknown>) => new URLSearchParams(Object.entries(p).filter(([, v]) => v).map(([k, v]) => [k, String(v)])).toString();
   if (collection === "requirements" && data.kind !== "Internal" && data.clientId) {
     if (can("proposals", "create"))
-      out.push(
-        <button key="prop" className="btn" disabled={busy} onClick={() => run(async () => {
-          const pid = await createDoc("proposals", {
-            title: data.title, clientId: data.clientId, requirementId: id, status: "Draft", rev: 0,
-            scope: [data.description, data.specifications].filter(Boolean).join("\n\n"), approach: "", deliverables: data.quantities ? `Quantities: ${data.quantities}` : "", timeline: data.targetDate ? `Target date: ${data.targetDate}` : "", terms: "",
-          }, ENTITIES.proposals.code);
-          if (data.status === "New" || data.status === "Under study") await updateDoc("requirements", id, { status: "Proposal sent" }, data);
-          return `/proposals/${pid}`;
-        })}>Create proposal <ArrowRight size={14} /></button>,
-      );
-    if (can("quotations", "create")) out.push(<Link key="q" className="btn" href={`/quotations/new?requirementId=${id}`}>Create quotation <ArrowRight size={14} /></Link>);
+      out.push(<Link key="prop" className="btn" href={`/proposals/new?${q({ clientId: data.clientId, requirementId: id, title: data.title })}`}>Create proposal <ArrowRight size={14} /></Link>);
+    if (can("quotations", "create"))
+      out.push(<Link key="q" className="btn" href={`/quotations/new?${q({ clientId: data.clientId, requirementId: id, title: data.title })}`}>Create quotation <ArrowRight size={14} /></Link>);
   }
-  if (collection === "proposals") {
-    if (can("proposals", "edit"))
-      out.push(
-        <button key="rev" className="btn" disabled={busy} onClick={() => run(async () => {
-          if (!confirm(`Start revision R${Number(data.rev ?? 0) + 1}? R${data.rev ?? 0} is kept in the history.`)) throw new Error("Cancelled");
-          const snapshot = Object.fromEntries(["title", "scope", "approach", "deliverables", "timeline", "terms", "validUntil", "status"].map((k) => [k, data[k] ?? null]));
-          await updateDoc("proposals", id, { rev: Number(data.rev ?? 0) + 1, status: "Draft", revisions: arrayUnion({ rev: data.rev ?? 0, at: new Date().toISOString(), ...snapshot }) }, data);
-          return `/proposals/${id}`;
-        })}>New revision</button>,
-      );
-    if (can("proposals", "edit"))
-      out.push(
-        <button key="pdf" className="btn" disabled={busy} onClick={() => run(async () => {
-          const company = await getCompany();
-          const client = await getDocOnce("clients", String(data.clientId));
-          const html = sectionsDocHtml({
-            company, title: "Technical & Commercial Proposal",
-            meta: [["Proposal", `${data.code} R${data.rev ?? 0}`], ["Client", client?.legalName], ["Subject", data.title], ["Date", new Date().toLocaleDateString("en-IN")], ["Valid until", data.validUntil ?? ""]],
-            sections: [["Scope", String(data.scope ?? "")], ["Technical approach", String(data.approach ?? "")], ["Deliverables", String(data.deliverables ?? "")], ["Timeline", String(data.timeline ?? "")], ["Terms", String(data.terms ?? "")]],
-          });
-          const name = `${data.code} R${data.rev ?? 0} ${data.title}`;
-          const { driveId, fileId } = await makePdf(html, name, { folder: `${clientFolder(client)}/Proposals`, linked: { col: "proposals", id } });
-          await updateDoc("proposals", id, { pdfs: arrayUnion({ rev: data.rev ?? 0, driveId, fileId, at: new Date().toISOString() }) });
-          await addDocRecord({ name: `${name}.pdf`, folder: "Proposals", clientId: String(data.clientId), linked: { col: "proposals", id }, fileId, driveId, mime: "application/pdf" });
-          await openDrive(driveId);
-          return `/proposals/${id}`;
-        })}>Export PDF</button>,
-      );
-    for (const p of ((data.pdfs ?? []) as { rev: number; driveId: string }[]).slice(-1))
-      out.push(<button key="lastpdf" className="btn" onClick={() => openDrive(p.driveId)}>PDF R{p.rev}</button>);
-    if (can("quotations", "create")) out.push(<Link key="q" className="btn-primary" href={`/quotations/new?proposalId=${id}`}>Create quotation <ArrowRight size={14} /></Link>);
-  }
+  if (collection === "proposals" && can("quotations", "create"))
+    out.push(<Link key="q" className="btn-primary" href={`/quotations/new?${q({ clientId: data.clientId, requirementId: data.requirementId, proposalId: id, title: data.title })}`}>Create quotation <ArrowRight size={14} /></Link>);
+  // Accepted quotation → project in one click, carrying client, value and billing type (§5).
+  if (collection === "quotations" && data.status === "Accepted" && !data.projectId && can("projects", "create"))
+    out.push(
+      <button key="proj" className="btn-primary" disabled={busy} onClick={() => run(async () => {
+        const pid = await createDoc("projects", {
+          name: data.title, projectType: "Client project", clientId: data.clientId, status: "Planned",
+          value: Number(data.value ?? data.taxable ?? 0), billingType: data.billingType === "nonGst" ? "nonGst" : "gst",
+          quotationId: id, requirementId: data.requirementId ?? null,
+        }, ENTITIES.projects.code);
+        await updateDoc("quotations", id, { projectId: pid }, data);
+        if (data.requirementId) await updateDoc("requirements", String(data.requirementId), { status: "Closed - won", projectId: pid });
+        return `/projects/${pid}`;
+      })}>Convert to project <ArrowRight size={14} /></button>,
+    );
+  if (collection === "quotations" && data.status === "Accepted" && can("invoices", "create"))
+    out.push(<Link key="inv" className="btn" href={`/invoices/new?quotationId=${id}`}>Create invoice</Link>);
   // Issuing the MOM: branded PDF saved to the project / client documents, shared with attendees (§6.4).
   if (collection === "meetings" && can("meetings", "edit") && data.status !== "Cancelled") {
     const issued = data.status === "MOM issued";
@@ -224,7 +203,7 @@ function ClientLinks({ id }: { id: string }) {
       <div className="grid gap-4 md:grid-cols-2">
         {list("Projects", projects.rows, (p) => `/projects/${p.id}`, (p) => `${p.code} · ${p.name}`, (p) => <><GstBadge type={String(p.billingType)} /><Badge>{String(p.status)}</Badge></>)}
         {list("Requirements", reqs.rows, (r) => `/requirements/${r.id}`, (r) => `${r.code} · ${r.title}`, (r) => <Badge>{String(r.status)}</Badge>)}
-        {can("quotations", "view") && list("Quotations", quotes.rows, (q) => `/quotations/${q.id}`, (q) => `${q.number} R${q.rev ?? 0} · ${q.title}`, (q) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(q.total))}</span><Badge>{String(q.status)}</Badge></>)}
+        {can("quotations", "view") && list("Quotations", quotes.rows, (q) => `/quotations/${q.id}`, (q) => `${q.number} · ${q.title}`, (q) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(q.value ?? q.taxable ?? 0))}</span><Badge>{String(q.status)}</Badge></>)}
         {can("invoices", "view") && list("Invoices", invoices.rows, (i) => `/invoices/${i.id}`, (i) => `${i.number ?? "Draft"} · ${fmtDate(i.date)}`, (i) => <><span className="whitespace-nowrap tabular-nums">{inr(Number(i.total))}</span><Badge>{String(i.status)}</Badge></>)}
       </div>
       <DocsPanel filter={{ clientId: id }} />
@@ -310,8 +289,9 @@ function ItemLinks({ id }: { id: string }) {
 }
 
 function MeetingSnapshot({ data }: { data: D }) {
-  const { nonGst } = useAuth();
-  const snap = (nonGst && data.snapshotFull ? data.snapshotFull : data.snapshot) as Snapshot | undefined;
+  const { nonGst, money } = useAuth();
+  // Figures are money: only roles with "Can see money" see the snapshot.
+  const snap = (money ? (nonGst && data.snapshotFull ? data.snapshotFull : data.snapshot) : undefined) as Snapshot | undefined;
   const links: React.ReactNode[] = [];
   if (data.projectId) links.push(<Link key="p" href={`/projects/${data.projectId}`} className="btn">Project <ArrowRight size={14} /></Link>);
   if (data.clientId) links.push(<Link key="c" href={`/clients/${data.clientId}`} className="btn">Client <ArrowRight size={14} /></Link>);

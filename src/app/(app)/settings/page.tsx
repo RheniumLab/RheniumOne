@@ -154,11 +154,22 @@ function Roles() {
         <div className="card overflow-x-auto">
           <div className="flex items-center justify-between border-b border-border p-3">
             <span className="text-sm font-semibold">{role.name}</span>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={Boolean(role.nonGst)} onChange={() => updateDoc("roles", role.id, { nonGst: !role.nonGst }, role as unknown as Record<string, unknown>)} />
-              Can see non-GST data
-            </label>
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              <label className="flex items-center gap-2 text-sm" title="Project values and budgets, project money view, invoices / quotations / PO documents, figures in meetings, BOM costs">
+                <input type="checkbox" checked={Boolean(role.money)} onChange={() => updateDoc("roles", role.id, { money: !role.money }, role as unknown as Record<string, unknown>)} />
+                Can see money
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={Boolean(role.nonGst)} onChange={() => updateDoc("roles", role.id, { nonGst: !role.nonGst }, role as unknown as Record<string, unknown>)} />
+                Can see non-GST data
+              </label>
+            </div>
           </div>
+          {!role.money && (
+            <p className="border-b border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+              Without “Can see money”, this role sees projects with tasks, milestones and documents only — no project value, money view, commercial documents (invoices, quotations, POs), BOM costs or meeting figures.
+            </p>
+          )}
           <table className="table">
             <thead><tr><th>Module</th>{ACTIONS.map((a) => <th key={a} className="text-center capitalize">{a}</th>)}</tr></thead>
             <tbody>
@@ -282,7 +293,7 @@ function ApprovalRules() {
       <table className="table">
         <thead><tr><th>On</th><th>Rule</th><th className="w-36">Above</th><th className="w-44">Approved by</th></tr></thead>
         <tbody>
-          {rules.map((r, i) => (
+          {rules.map((r, i) => r.type === "quotationDiscount" ? null : (
             <tr key={r.type}>
               <td><input type="checkbox" checked={r.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} /></td>
               <td>{APPROVAL_LABELS[r.type]}</td>

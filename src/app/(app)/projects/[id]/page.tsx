@@ -22,14 +22,19 @@ import { DateInput } from "@/components/date-input";
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<"overview" | "tasks" | "money" | "documents" | "build" | "comments">("overview");
+  const { can, money } = useAuth();
+  // Roles without "Can see money" get tasks, milestones and documents only.
+  const tabs = (["overview", "tasks", "money", "documents", "build", "comments"] as const).filter(
+    (t) => (t !== "money" || money) && (t !== "build" || ["boms", "purchases", "invoices", "challans"].some((m) => can(m as never, "view"))),
+  );
   return (
     <EntityDetail def={ENTITIES.projects} id={id} transform={projectTransform}>
       {(p) => (
         <div className="mb-4 space-y-4">
           <LinkedRecords collection="projects" id={id} data={p} />
-          <MoneyView project={p} id={id} />
-          <div className="flex gap-1 border-b border-border">
-            {(["overview", "tasks", "money", "documents", "build", "comments"] as const).map((t) => (
+          {money && <MoneyView project={p} id={id} />}
+          <div className="flex gap-1 overflow-x-auto border-b border-border">
+            {tabs.map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -41,7 +46,7 @@ export default function ProjectPage() {
           </div>
           {tab === "overview" && <Overview p={p} />}
           {tab === "tasks" && <Tasks projectId={id} />}
-          {tab === "money" && <ProjectEntries projectId={id} />}
+          {tab === "money" && money && <ProjectEntries projectId={id} />}
           {tab === "documents" && <DocsPanel filter={{ projectId: id }} />}
           {tab === "build" && <Build projectId={id} />}
           {tab === "comments" && <Comments projectId={id} />}

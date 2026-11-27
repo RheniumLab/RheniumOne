@@ -9,7 +9,8 @@ import { useCollection, useDoc } from "@/lib/hooks";
 import { orderBy, where } from "firebase/firestore";
 import { createDoc, softDelete, updateDoc } from "@/lib/data";
 import type { EntityDef, Field } from "@/lib/entities";
-import { Cell, Empty, ErrorBox, GstBadge, NoAccess, PageHeader, Spinner } from "./ui";
+import { Badge, Cell, Empty, ErrorBox, GstBadge, NoAccess, PageHeader, Spinner } from "./ui";
+import { AttachmentsPanel } from "./attachments";
 import { FieldInput, FieldValue } from "./fields";
 
 function sections(fields: Field[]) {
@@ -24,8 +25,10 @@ function sections(fields: Field[]) {
 }
 
 export function EntityList({ def, extraActions }: { def: EntityDef; extraActions?: ReactNode }) {
-  const { can } = useAuth();
+  const { can, money } = useAuth();
   const { rows, loading, error } = useCollection(def.collection, [], { gstAware: def.gstAware });
+  const codeField = def.code?.field ?? "code";
+  const columns = def.columns.filter((c) => money || (c.kind !== "money" && !def.fields.find((f) => f.name === c.field)?.money));
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
 
@@ -37,7 +40,7 @@ export function EntityList({ def, extraActions }: { def: EntityDef; extraActions
   const filtered = rows
     .filter((r) => !status || r[def.statusField!] === status)
     .filter((r) => !q || JSON.stringify(r).toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => String(b.code ?? "").localeCompare(String(a.code ?? "")) || def.title(a).localeCompare(def.title(b)));
+    .sort((a, b) => String(b[codeField] ?? "").localeCompare(String(a[codeField] ?? "")) || def.title(a).localeCompare(def.title(b)));
 
   if (!can(def.module, "view")) return <NoAccess />;
 
@@ -78,16 +81,16 @@ export function EntityList({ def, extraActions }: { def: EntityDef; extraActions
             <table className="table">
               <thead>
                 <tr>
-                  {def.columns.map((c) => <th key={c.field}>{c.label}</th>)}
-                  {def.gstAware && <th>Billing</th>}
+                  {columns.map((c) => <th key={c.field}>{c.label}</th>)}
+                  {def.gstAware && money && <th>Billing</th>}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} className="cursor-pointer">
-                    {def.columns.map((c, i) => (
+                    {columns.map((c, i) => (
                       <td key={c.field}>
-                        {i === 1 || (i === 0 && def.columns.length === 1) ? (
+                        {i === 1 || (i === 0 && columns.length === 1) ? (
                           <Link href={`${def.basePath}/${r.id}`} className="font-medium text-brand hover:underline">
                             <Cell value={r[c.field] || def.title(r)} kind={c.kind} />
                           </Link>
@@ -96,7 +99,7 @@ export function EntityList({ def, extraActions }: { def: EntityDef; extraActions
                         )}
                       </td>
                     ))}
-                    {def.gstAware && <td><GstBadge type={String(r.billingType)} /></td>}
+                    {def.gstAware && money && <td><GstBadge type={String(r.billingType)} /></td>}
                   </tr>
                 ))}
               </tbody>
@@ -123,6 +126,8 @@ export function EntityForm({
   transform?: (next: Record<string, unknown>, changed: string) => Promise<Record<string, unknown>> | Record<string, unknown>;
 }) {
   const router = useRouter();
+  const { money } = useAuth();
+  const shown = (f: Field) => money || !f.money;
   const defaults = Object.fromEntries(def.fields.filter((f) => f.default !== undefined).map((f) => [f.name, f.default]));
   const [values, setValues] = useState<Record<string, unknown>>({ ...defaults, ...(initial ?? {}) });
   const [busy, setBusy] = useState(false);
@@ -140,8 +145,9 @@ export function EntityForm({
     setErr(null);
     try {
       const data: Record<string, unknown> = {};
-      for (const f of def.fields) if (!f.when || f.when(values)) data[f.name] = values[f.name] ?? null;
-      if (def.gstAware && !data.billingType) data.billingType = "gst";
+      // Only fields this user can see are saved, so hidden money fields are never overwritten.
+      for (const f of def.fields) if (shown(f) && (!f.when || f.when(values))) data[f.name] = values[f.name] ?? null;
+      if (!id && def.gstAware && !data.billingType) data.billingType = "gst";
       if (id) {
         await updateDoc(def.collection, id, data, initial);
         if (onSaved) onSaved(id);
@@ -160,7 +166,7 @@ export function EntityForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       {sections(def.fields).map((s) => {
-        const visible = s.fields.filter((f) => !f.when || f.when(values));
+        const visible = s.fields.filter((f) => shown(f) && (!f.when || f.when(values)));
         if (!visible.length) return null;
         return (
           <div key={s.name} className="card p-4">
@@ -180,6 +186,7 @@ export function EntityForm({
           </div>
         );
       })}
+      {!id && def.attachments && <p className="text-sm text-muted">After saving you can attach the documents (Word, Excel, PDF…).</p>}
       {err && <ErrorBox>{err}</ErrorBox>}
       <div className="flex gap-2">
         <button className="btn-primary" disabled={busy}>{busy ? "Saving…" : id ? "Save changes" : `Create ${def.singular.toLowerCase()}`}</button>
@@ -189,13 +196,13 @@ export function EntityForm({
   );
 }
 
-export function EntityNew({ def, transform }: { def: EntityDef; transform?: Parameters<typeof EntityForm>[0]["transform"] }) {
+export function EntityNew({ def, transform, initial }: { def: EntityDef; transform?: Parameters<typeof EntityForm>[0]["transform"]; initial?: Record<string, unknown> }) {
   const { can } = useAuth();
   if (!can(def.module, "create")) return <NoAccess />;
   return (
     <div>
       <PageHeader title={`New ${def.singular.toLowerCase()}`} back={def.basePath} />
-      <EntityForm def={def} transform={transform} />
+      <EntityForm def={def} transform={transform} initial={initial} />
     </div>
   );
 }
@@ -213,7 +220,7 @@ export function EntityDetail({
   actions?: (d: Record<string, unknown>) => ReactNode;
   transform?: Parameters<typeof EntityForm>[0]["transform"];
 }) {
-  const { can } = useAuth();
+  const { can, money } = useAuth();
   const router = useRouter();
   const { data, loading, error } = useDoc(def.collection, id);
   const [editing, setEditing] = useState(false);
@@ -245,8 +252,9 @@ export function EntityDetail({
         title={def.title(data)}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            {data.code ? <span className="font-mono">{String(data.code)}</span> : null}
-            {def.gstAware && <GstBadge type={String(data.billingType)} />}
+            {data[def.code?.field ?? "code"] ? <span className="font-mono">{String(data[def.code?.field ?? "code"])}</span> : null}
+            {def.gstAware && money && <GstBadge type={String(data.billingType)} />}
+            {def.statusField && data[def.statusField] ? <Badge>{String(data[def.statusField])}</Badge> : null}
           </span>
         }
         actions={
@@ -262,9 +270,19 @@ export function EntityDetail({
         }
       />
       {children?.(data)}
+      {def.attachments && (
+        <AttachmentsPanel
+          col={def.collection}
+          id={id}
+          data={data}
+          folder={def.folder ? def.folder(data) : def.plural}
+          billingType={String(data.billingType ?? "gst")}
+          editable={can(def.module, "edit")}
+        />
+      )}
       <div className="space-y-4">
         {sections(def.fields).map((s) => {
-          const visible = s.fields.filter((f) => !f.when || f.when(data));
+          const visible = s.fields.filter((f) => (money || !f.money) && (!f.when || f.when(data)));
           if (!visible.length) return null;
           return (
             <div key={s.name} className="card p-4">

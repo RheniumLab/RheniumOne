@@ -14,7 +14,7 @@ import { bomTotal, childrenOf, isLeaf, nextRev, totalQty, unitCosts, type BomLin
 export default function BomPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { can } = useAuth();
+  const { can, money } = useAuth();
   const { data: bom, loading } = useDoc("boms", id);
   const { rows: items } = useCollection("items");
   const { rows: vendors } = useCollection("vendors", [], { enabled: can("vendors", "view") || can("sourcing", "view") });
@@ -117,19 +117,18 @@ export default function BomPage() {
             {dirty && editable && <button className="btn-primary" onClick={save}><Save size={14} /> Save changes</button>}
             {editable && <button className="btn" onClick={newRevision}>New revision</button>}
             {bom.kind === "EBOM" && can("boms", "create") && <button className="btn" onClick={deriveMbom}>Derive MBOM</button>}
-            {can("quotations", "create") && <Link className="btn" href={`/quotations/new?bomId=${id}`}>Create quotation <ArrowRight size={14} /></Link>}
             {bom.projectId ? <Link className="btn" href={`/projects/${bom.projectId}`}>Project <ArrowRight size={14} /></Link> : null}
           </>
         }
       />
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Estimated cost (per unit)" value={inr(est)} />
-        <Stat label="Actual (linked POs, taxable)" value={inr(actual)} />
+        {money && <Stat label="Estimated cost (per unit)" value={inr(est)} />}
+        {money && <Stat label="Actual (linked POs, taxable)" value={inr(actual)} />}
         <Stat label="Lines" value={lines.length} />
       </div>
       {err && <ErrorBox>{err}</ErrorBox>}
       <div className="flex gap-1 border-b border-border">
-        {(["lines", "sourcing", "revisions"] as const).map((t) => (
+        {(["lines", "sourcing", "revisions"] as const).filter((t) => money || t !== "sourcing").map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`-mb-px border-b-2 px-3 py-2 text-sm capitalize ${tab === t ? "border-brand font-medium text-brand" : "border-transparent text-muted"}`}>{t}</button>
         ))}
       </div>
@@ -141,7 +140,7 @@ export default function BomPage() {
               <tr>
                 <th className="w-8"></th><th className="w-28">Part no.</th><th>Description</th><th className="w-20 text-right">Qty</th><th className="w-16">Unit</th>
                 <th className="w-40">Item</th><th>Spec</th>{bom.kind === "MBOM" && <><th className="w-24">Make/buy</th><th>Process</th></>}
-                <th className="w-24 text-right">Rate</th><th className="w-28 text-right">Unit cost</th><th className="w-28"></th>
+                {money && <><th className="w-24 text-right">Rate</th><th className="w-28 text-right">Unit cost</th></>}<th className="w-28"></th>
               </tr>
             </thead>
             <tbody>
@@ -175,8 +174,8 @@ export default function BomPage() {
                         <td><input className="input !py-1" disabled={!editable} value={l.process ?? ""} onChange={(e) => set(i, { process: e.target.value })} placeholder={l.makeBuy === "Make" ? "Process steps" : "Consumables"} /></td>
                       </>
                     )}
-                    <td><input className="input !py-1 text-right" type="number" step="0.01" disabled={!editable} value={l.rate ?? ""} onChange={(e) => set(i, { rate: Number(e.target.value) })} title={asm ? "Extra cost on top of parts (labour etc.)" : "Estimated unit rate"} /></td>
-                    <td className="whitespace-nowrap text-right tabular-nums">{inr(unit[i])}</td>
+                    {money && <td><input className="input !py-1 text-right" type="number" step="0.01" disabled={!editable} value={l.rate ?? ""} onChange={(e) => set(i, { rate: Number(e.target.value) })} title={asm ? "Extra cost on top of parts (labour etc.)" : "Estimated unit rate"} /></td>}
+                    {money && <td className="whitespace-nowrap text-right tabular-nums">{inr(unit[i])}</td>}
                     <td className="whitespace-nowrap">
                       {editable && (
                         <span className="flex gap-1 text-muted">
@@ -196,7 +195,7 @@ export default function BomPage() {
         </div>
       )}
 
-      {tab === "sourcing" && (
+      {tab === "sourcing" && money && (
         <div className="space-y-3">
           <p className="text-sm text-muted">For each part: shortlisted vendors, their prices and lead times, and the chosen vendor (§7.2). Tick parts and create purchase orders.</p>
           <div className="card overflow-x-auto">
@@ -253,7 +252,7 @@ export default function BomPage() {
           <div className="mb-2"><b>Rev {String(bom.rev)}</b> (current) — {String(bom.revNote ?? "")}</div>
           {((bom.revisions ?? []) as { rev: string; note: string; at: string; lines: BomLine[] }[]).slice().reverse().map((r) => (
             <div key={r.rev} className="border-t border-border py-2">
-              <b>Rev {r.rev}</b> — {r.note} <span className="text-muted">· replaced {new Date(r.at).toLocaleDateString("en-IN")} · {r.lines.length} lines · est. {inr(bomTotal(r.lines))}</span>
+              <b>Rev {r.rev}</b> — {r.note} <span className="text-muted">· replaced {new Date(r.at).toLocaleDateString("en-IN")} · {r.lines.length} lines{money ? ` · est. ${inr(bomTotal(r.lines))}` : ""}</span>
             </div>
           ))}
         </div>
