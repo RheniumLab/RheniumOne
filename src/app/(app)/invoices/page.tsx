@@ -34,7 +34,7 @@ export default function InvoicesPage() {
           {can("invoices", "create") && <Link href="/invoices/new" className="btn-primary"><Plus size={15} /> New invoice</Link>}
         </>}
       />
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="stat-row mb-4">
         <Stat label="Billed (issued)" value={inr(billed)} />
         <Stat label="Outstanding" value={inr(outstanding)} />
         <Stat label="Overdue" value={inr(overdue)} tone={overdue > 0 ? "danger" : undefined} />

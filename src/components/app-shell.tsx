@@ -3,12 +3,14 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { LogOut, Menu, Settings, X, WifiOff } from "lucide-react";
+import { Bell, LogOut, Menu, Settings, X, WifiOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { AREAS, MODULES } from "@/lib/modules";
 import { firebaseConfigured } from "@/lib/firebase";
 import { Spinner } from "./ui";
 import { InstallApp } from "./install-app";
+import { NotificationBell, useNotifications } from "./notifications";
+import { refreshPush } from "@/lib/push";
 import { where } from "firebase/firestore";
 import { useCollection } from "@/lib/hooks";
 import { flushOutbox, pendingUploads } from "@/lib/files";
@@ -29,6 +31,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Pending items for badges: approvals waiting for my role, handovers waiting for me.
   const approvals = useCollection("approvals", isAdmin ? [where("status", "==", "pending")] : [where("status", "==", "pending"), where("approverRole", "==", profile?.roleId ?? "-")], { includeDeleted: true, enabled: Boolean(profile?.active) }, [isAdmin, profile?.roleId]);
   const handovers = useCollection("transfers", [where("toHolder", "==", user?.uid ?? "-"), where("status", "==", "pending")], { enabled: Boolean(profile?.active) }, [user?.uid]);
+  const { unread } = useNotifications(50);
+  useEffect(() => {
+    if (user) void refreshPush();
+  }, [user]);
   const badges: Record<string, number> = { "/approvals": approvals.rows.length, "/accounts": handovers.rows.length };
 
   // Upload bill photos / files that were captured offline.
@@ -79,10 +85,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     }`;
   const nav = (
     <nav className="flex flex-col gap-4 p-3 text-sm">
-      <Link href="/" className={item(isActive("/"))}>
-        <span>Dashboard</span>
-        <Pending />
-      </Link>
+      <div className="space-y-0.5">
+        <Link href="/" className={item(isActive("/"))}>
+          <span>Dashboard</span>
+          <Pending />
+        </Link>
+        <Link href="/notifications" className={item(isActive("/notifications"))}>
+          <span className="flex items-center gap-2"><Bell size={14} /> Notifications</span>
+          <Pending />
+          {unread ? <span className="rounded-full bg-brand px-1.5 text-[10px] font-semibold text-white">{unread > 99 ? "99+" : unread}</span> : null}
+        </Link>
+      </div>
       {AREAS.map((area) => {
         const items = MODULES.filter((m) => m.area === area && can(m.key, "view"));
         if (!items.length) return null;
@@ -170,6 +183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
           <span className="hidden text-sm text-muted sm:inline">{profile.name} · {role.name}</span>
           <InstallApp />
+          <NotificationBell />
           <button className="btn !px-2 !py-1.5" onClick={logout} title="Sign out"><LogOut size={15} /></button>
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>

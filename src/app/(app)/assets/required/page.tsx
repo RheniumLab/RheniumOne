@@ -61,7 +61,7 @@ export default function RequiredAssetsPage() {
       <PageHeader back="/assets" title="Required assets" subtitle="Approved items in priority order, with a running total"
         actions={can("assets", "create") && <button className="btn-primary" onClick={() => setShow(!show)}><Plus size={15} /> Request an asset</button>} />
       {show && <RequestForm projects={projects} uid={user?.uid} onDone={() => setShow(false)} />}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="stat-row">
         <div className="card p-4">
           <div className="text-xs font-medium text-muted">Funds available for assets</div>
           <input className="input mt-1 tabular-nums" type="number" value={funds !== "" ? funds : String(company.assetFunds ?? "")} placeholder="₹" onChange={(e) => setFunds(e.target.value)}

@@ -4,6 +4,7 @@ import { collection, doc, getDoc, runTransaction, serverTimestamp, setDoc } from
 import { auth, db } from "./firebase";
 import { useDoc } from "./hooks";
 import { fyLabel, pad, updateDoc, type CodeSpec } from "./data";
+import { notify } from "./notify";
 import type { Company } from "./doc-html";
 
 export interface CompanySettings extends Company {
@@ -144,5 +145,6 @@ export async function requestApproval(o: {
     approverRole: rule.role, requestedBy: u.uid, requestedByName: u.displayName || u.email, status: "pending", at: serverTimestamp(),
   });
   await updateDoc(o.col, o.docId, { pendingApproval: { id: ref.id, type: o.type, role: rule.role } });
+  notify("approval.requested", ref.id);
   return "pending";
 }

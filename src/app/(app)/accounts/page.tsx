@@ -8,6 +8,7 @@ import { useCollection } from "@/lib/hooks";
 import { balances, useEntries, useTransfers } from "@/lib/money";
 import { createDoc, fmtDate, inr, today, updateDoc } from "@/lib/data";
 import { DateInput } from "@/components/date-input";
+import { notify } from "@/lib/notify";
 
 export default function AccountsPage() {
   const { can, isAdmin, user } = useAuth();
@@ -60,7 +61,7 @@ export default function AccountsPage() {
       {showTransfer && <TransferForm accounts={accounts} onDone={() => setShowTransfer(false)} />}
 
       {seeAll && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="stat-row">
           <Stat label="Total cash position" value={inr(total)} />
           <Stat label="In banks" value={inr(bankTotal)} />
           <Stat label="With people (cash)" value={inr(total - bankTotal)} />
@@ -145,7 +146,7 @@ function TransferForm({ accounts, onDone }: { accounts: Record<string, unknown>[
           from.kind === "cash" && to.kind === "cash" ? "Handover" : from.kind === "cash" ? "Cash deposit" : to.kind === "cash" ? "Cash withdrawal" : "Bank transfer";
         // A handover to someone else waits for them to confirm.
         const needsConfirm = to.kind === "cash" && to.holderId !== user?.uid;
-        await createDoc("transfers", {
+        const trId = await createDoc("transfers", {
           date: v.date,
           amount: Number(v.amount),
           fromAccountId: v.from,
@@ -156,6 +157,7 @@ function TransferForm({ accounts, onDone }: { accounts: Record<string, unknown>[
           note: v.note,
           status: needsConfirm ? "pending" : "confirmed",
         });
+        if (needsConfirm) setTimeout(() => notify("handover.sent", trId), 1500);
         onDone();
       }}
     >

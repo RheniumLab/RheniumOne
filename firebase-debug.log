@@ -1,0 +1,16 @@
+[debug] [2026-11-27T14:25:16.042Z] ----------------------------------------------------------------------
+[debug] [2026-11-27T14:25:16.045Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Likhith Gowda\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js firestore:indexes --non-interactive
+[debug] [2026-11-27T14:25:16.045Z] CLI Version:   13.31.2
+[debug] [2026-11-27T14:25:16.045Z] Platform:      win32
+[debug] [2026-11-27T14:25:16.045Z] Node Version:  v22.11.0
+[debug] [2026-11-27T14:25:16.045Z] Time:          Fri Nov 27 2026 19:55:16 GMT+0530 (India Standard Time)
+[debug] [2026-11-27T14:25:16.046Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-11-27T14:25:16.224Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-11-27T14:25:16.225Z] > authorizing via signed-in user (rheniuminovationlabs@gmail.com)
+[debug] [2026-11-27T14:25:16.225Z] [iam] checking project rheniumone-67aa4 for permissions ["datastore.indexes.list","firebase.projects.get"]
+[debug] [2026-11-27T14:25:16.226Z] Checked if tokens are valid: true, expires at: 1795791899950
+[debug] [2026-11-27T14:25:16.227Z] Checked if tokens are valid: true, expires at: 1795791899950
+[debug] [2026-11-27T14:25:16.228Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/rheniumone-67aa4:testIamPermissions [none]
+[debug] [2026-11-27T14:25:16.228Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/rheniumone-67aa4:testIamPermissions x-goog-quota-user=projects/rheniumone-67aa4
+[debug] [2026-11-27T14:25:16.228Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/rheniumone-67aa4:testIamPermissions {"permissions":["datastore.indexes.list","firebase.projects.get"]}

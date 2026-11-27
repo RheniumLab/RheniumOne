@@ -47,7 +47,7 @@ export default function Dashboard() {
 
       <section>
         <h2 className="mb-2 text-sm font-semibold text-muted">Money — where it sits</h2>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="stat-row">
           <Stat label={seeAll ? "Total cash position" : "Your wallet"} value={inr(total)} />
           {can("cashflow", "view") && <Stat label="In this month" value={inr(mIn)} />}
           {can("cashflow", "view") && <Stat label="Out this month" value={inr(mOut)} />}
@@ -118,7 +118,7 @@ function Receivables() {
   return (
     <section>
       <div className="mb-2 flex items-center justify-between"><h2 className="text-sm font-semibold text-muted">Who owes us</h2><Link className="text-xs text-brand" href="/payments">Dues & ageing →</Link></div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="stat-row">
         <Stat label="Outstanding" value={inr(total)} />
         {AGE_BUCKETS.map((b) => <Stat key={b} label={`${b} days`} value={inr(buckets[b])} tone={b === "90+" && buckets[b] > 0 ? "danger" : undefined} />)}
       </div>

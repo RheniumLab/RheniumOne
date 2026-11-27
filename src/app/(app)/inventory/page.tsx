@@ -33,7 +33,7 @@ export default function InventoryPage() {
           </>
         }
       />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stat-row">
         <Stat label="Items" value={items.length} />
         <Stat label="Stock value (at standard rate)" value={inr(value)} />
         <Stat label="At or below reorder level" value={low.length} tone={low.length ? "danger" : "ok"} />

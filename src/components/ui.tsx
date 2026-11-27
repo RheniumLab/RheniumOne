@@ -68,22 +68,12 @@ export function Cell({ value, kind }: { value: unknown; kind?: "money" | "date" 
   return <>{String(value)}</>;
 }
 
-/** Smaller text for long amounts so they never spill out of the card. */
-const statSize = (v: ReactNode) => {
-  const n = typeof v === "string" || typeof v === "number" ? String(v).length : 0;
-  return n > 16 ? "text-base" : n > 12 ? "text-lg" : "text-xl";
-};
-
 export function Stat({ label, value, hint, tone: t }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "ok" | "danger" }) {
   return (
-    <div className="card min-w-0 p-4">
-      <div className="truncate text-xs font-medium text-muted" title={label}>{label}</div>
-      <div
-        className={`mt-1 font-semibold leading-tight tabular-nums [overflow-wrap:anywhere] ${statSize(value)} ${t === "ok" ? "text-ok" : t === "danger" ? "text-danger" : ""}`}
-        title={typeof value === "string" ? value : undefined}
-      >
-        {value}
-      </div>
+    <div className="card p-4">
+      <div className="text-xs font-medium whitespace-nowrap text-muted">{label}</div>
+      {/* Amounts stay on one line; in a .stat-row the card moves down a line if it doesn't fit. */}
+      <div className={`mt-1 text-xl font-semibold leading-tight whitespace-nowrap tabular-nums ${t === "ok" ? "text-ok" : t === "danger" ? "text-danger" : ""}`}>{value}</div>
       {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   );

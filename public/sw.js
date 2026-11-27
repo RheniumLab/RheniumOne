@@ -1,9 +1,11 @@
 // Rhenium One service worker.
-// Its only job is to make the app installable on phones. It caches nothing,
-// so every deploy is picked up immediately. (Offline data entry is handled by
-// Firestore's own offline cache, not here.)
+// 1. Makes the app installable on phones (caches nothing, so every deploy shows immediately;
+//    offline data entry is handled by Firestore's own offline cache).
+// 2. Shows push notifications (Firebase Cloud Messaging, data messages) and opens
+//    the right page when one is tapped.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
 self.addEventListener("fetch", (event) => {
   if (event.request.mode !== "navigate") return;
   event.respondWith(
@@ -14,5 +16,42 @@ self.addEventListener("fetch", (event) => {
           { headers: { "content-type": "text/html; charset=utf-8" } },
         ),
     ),
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let msg = {};
+  try {
+    msg = event.data ? event.data.json() : {};
+  } catch {
+    msg = { data: { title: "Rhenium One", body: event.data ? event.data.text() : "" } };
+  }
+  const d = msg.data || msg.notification || {};
+  const title = d.title || "Rhenium One";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: d.body || "",
+      icon: "/brand/icon-192.png",
+      badge: "/brand/icon-192.png",
+      tag: d.type ? `${d.type}-${d.link || ""}` : undefined,
+      data: { link: d.link || "/notifications" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const link = (event.notification.data && event.notification.data.link) || "/notifications";
+  const url = new URL(link, self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if (w.url.startsWith(self.location.origin) && "focus" in w) {
+          w.navigate(url).catch(() => {});
+          return w.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
   );
 });

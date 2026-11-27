@@ -19,6 +19,7 @@ import { MODES } from "@/lib/money";
 import type { Line } from "@/lib/tax";
 import { PoEditor } from "../editor";
 import { DateInput } from "@/components/date-input";
+import { notify } from "@/lib/notify";
 
 type PoLine = Line & { received?: number };
 
@@ -120,7 +121,7 @@ export default function PoPage() {
       />
       {err && <ErrorBox>{err}</ErrorBox>}
       {po.status === "Pending approval" && <div className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">Waiting for approval. It can be sent to the vendor once approved.</div>}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="stat-row">
         <Stat label="PO value" value={inr(Number(po.total))} />
         <Stat label="Billed by vendor" value={inr(billed)} />
         <Stat label="Paid" value={inr(paid)} />
@@ -172,6 +173,7 @@ function GrnForm({ po, lines, onDone }: { po: Doc; lines: PoLine[]; onDone: () =
       try {
         const grnLines = lines.map((l, i) => ({ poLine: i, itemId: l.itemId ?? null, description: l.description, qty: qty[i], unit: l.unit ?? "" })).filter((l) => l.qty > 0);
         const grnId = await createDoc("grns", { poId: po.id, poNumber: po.number, vendorId: po.vendorId, vendorName: po.vendorName, projectId: po.projectId ?? null, date, location, lines: grnLines }, fySeries("grn", "GRN", new Date(date)));
+        notify("grn.received", grnId);
         for (const l of grnLines)
           if (l.itemId) await createDoc("stockMoves", { itemId: l.itemId, qty: l.qty, location, type: "GRN", projectId: po.projectId ?? null, ref: { col: "grns", id: grnId }, date, note: `${po.number}` });
         const newLines = lines.map((l, i) => ({ ...l, received: Number(l.received || 0) + (qty[i] || 0) }));
@@ -229,12 +231,13 @@ function BillForm({ po, vendor, onDone }: { po: Doc; vendor: Doc | null; onDone:
       setBusy(true);
       try {
         const fileId = await saveFile(file, { folder: `${vendorFolder(vendor)}/Bills`, billingType: String(po.billingType) });
-        await createDoc("purchaseBills", {
+        const billId = await createDoc("purchaseBills", {
           vendorId: po.vendorId, vendorName: po.vendorName, vendorGstin: vendor?.gstin ?? null, poId: po.id, poNumber: po.number,
           projectId: po.projectId ?? null, scope: po.projectId ? "project" : "company", category: v.category,
           billNo: v.billNo, billDate: v.billDate, dueDate: v.dueDate, taxable: Number(v.taxable) || 0, tax: Number(v.tax) || 0, total,
           billingType: po.billingType, fileId, paid: 0, status: "Unpaid",
         });
+        setTimeout(() => notify("bill.recorded", billId), 1500);
         onDone();
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));

@@ -18,6 +18,7 @@ import { invoiceDue } from "@/lib/money";
 import type { Line } from "@/lib/tax";
 import { InvoiceEditor } from "../editor";
 import { EwayBill } from "@/components/eway";
+import { notify } from "@/lib/notify";
 
 async function renderInvoicePdf(inv: Record<string, unknown> & { id: string }) {
   const company = await getCompany();
@@ -94,6 +95,7 @@ export default function InvoicePage() {
       if (!confirm("Issue this invoice? It gets its number and can no longer be edited.")) return;
       const c = await getCompany();
       const number = await assignNumber("invoices", id, invoiceSeries(c, String(inv.billingType), new Date(String(inv.date))), { status: "Issued", issuedAt: new Date().toISOString() });
+      notify("invoice.issued", id);
       await renderInvoicePdf({ ...inv, number, id });
     });
 
@@ -144,7 +146,7 @@ export default function InvoicePage() {
         }
       />
       {err && <ErrorBox>{err}</ErrorBox>}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="stat-row">
         <Stat label="Total" value={inr(Number(inv.total))} />
         <Stat label="Received (incl. TDS)" value={inr(Number(inv.paid || 0))} />
         <Stat label="Balance" value={inr(balance)} tone={balance > 0 && String(inv.dueDate) < new Date().toISOString().slice(0, 10) ? "danger" : undefined} />

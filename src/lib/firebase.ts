@@ -15,12 +15,14 @@ const config = {
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  // Needed for push notifications; it's the project number, which is part of the app id (1:<number>:web:…).
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.split(":")[1],
 };
 
 let app: FirebaseApp | undefined;
 let firestore: Firestore | undefined;
 
-function getApp(): FirebaseApp {
+export function getApp(): FirebaseApp {
   if (!app) app = getApps()[0] ?? initializeApp(config);
   return app;
 }

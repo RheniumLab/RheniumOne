@@ -121,7 +121,7 @@ export default function BomPage() {
           </>
         }
       />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stat-row">
         {money && <Stat label="Estimated cost (per unit)" value={inr(est)} />}
         {money && <Stat label="Actual (linked POs, taxable)" value={inr(actual)} />}
         <Stat label="Lines" value={lines.length} />

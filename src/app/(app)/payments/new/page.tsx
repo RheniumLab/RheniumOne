@@ -9,6 +9,7 @@ import { useCollection } from "@/lib/hooks";
 import { createDoc, fmtDate, inr, today, updateDoc } from "@/lib/data";
 import { MODES, invoiceDue, tdsQuarter } from "@/lib/money";
 import { DateInput } from "@/components/date-input";
+import { notify } from "@/lib/notify";
 
 export default function NewPaymentPage() {
   return <Suspense><NewPayment /></Suspense>;
@@ -105,6 +106,7 @@ function NewPayment() {
           category: "Client advance", billingType, accountId, accountHolder: account.holderId ?? null, mode,
           notes: `Advance from ${client?.displayName ?? ""}`, linkedDoc: { type: "payment", id: payId }, status: "approved",
         });
+      setTimeout(() => notify("payment.received", payId), 1500);
       router.push(params.get("invoiceId") ? `/invoices/${params.get("invoiceId")}` : "/payments");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));

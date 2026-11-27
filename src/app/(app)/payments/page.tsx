@@ -81,7 +81,7 @@ function Ageing({ invoices }: { invoices: Record<string, unknown>[] }) {
   const totals = Object.fromEntries(AGE_BUCKETS.map((b) => [b, byClient.reduce((s, [, e]) => s + (e.buckets[b] ?? 0), 0)]));
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="stat-row">
         {AGE_BUCKETS.map((b) => <Stat key={b} label={`${b} days`} value={inr(totals[b])} tone={b === "90+" && totals[b] > 0 ? "danger" : undefined} />)}
       </div>
       <div className="card overflow-x-auto">
@@ -121,7 +121,7 @@ function Tds({ rows, editable }: { rows: Record<string, unknown>[]; editable: bo
   const pending = withTds.filter((p) => !p.tds26AS).reduce((s, p) => s + Number(p.tds), 0);
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="stat-row">
         <Stat label="TDS deducted by clients" value={inr(total)} />
         <Stat label="Not yet in Form 26AS" value={inr(pending)} tone={pending > 0 ? "danger" : "ok"} />
       </div>

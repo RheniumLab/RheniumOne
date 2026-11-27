@@ -11,6 +11,7 @@ import { MODES } from "@/lib/money";
 import { createDoc, today } from "@/lib/data";
 import { saveFile } from "@/lib/files";
 import { DateInput } from "@/components/date-input";
+import { notify } from "@/lib/notify";
 
 export default function NewEntryPage() {
   return (
@@ -94,7 +95,7 @@ function NewEntry() {
     setBusy(true);
     try {
       const billId = bill ? await saveFile(bill, { folder: `Bills/${v.date.slice(0, 7)}`, billingType: v.billingType }) : null;
-      await createDoc("entries", {
+      const entryId = await createDoc("entries", {
         date: v.date,
         direction: v.direction,
         amount: Number(v.amount),
@@ -115,6 +116,7 @@ function NewEntry() {
         taxAmount: gstPurchase ? Number(v.taxAmount || 0) : null,
         status: "approved",
       });
+      if (v.direction === "out" && isPurchase) setTimeout(() => notify("expense.recorded", entryId), 1500);
       router.push(v.scope === "project" && params.get("projectId") ? `/projects/${v.projectId}` : "/cashflow");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));

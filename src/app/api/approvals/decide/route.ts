@@ -1,5 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, errorResponse, HttpError, requireUser } from "@/lib/firebase-admin";
+import { send } from "@/lib/notify-server";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,15 @@ export async function POST(req: Request) {
         at: FieldValue.serverTimestamp(), before: { approval: a.type }, after: { ...Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v instanceof FieldValue ? "(now)" : v])), comment: comment ?? "" },
       });
     });
+    // Tell the requester (in-app + push).
+    const a = (await ref.get()).data();
+    if (a)
+      await send([a.requestedBy], {
+        type: "approval.decided",
+        title: decision === "approve" ? "Approved" : "Rejected",
+        body: `${a.summary}${comment ? ` — “${comment}”` : ""} · by ${me.user.name}`,
+        link: a.link || "/approvals",
+      }, me.uid).catch(() => 0);
     return Response.json({ ok: true });
   } catch (e) {
     return errorResponse(e);

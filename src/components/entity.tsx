@@ -12,6 +12,10 @@ import type { EntityDef, Field } from "@/lib/entities";
 import { Badge, Cell, Empty, ErrorBox, GstBadge, NoAccess, PageHeader, Spinner } from "./ui";
 import { AttachmentsPanel } from "./attachments";
 import { FieldInput, FieldValue } from "./fields";
+import { notify } from "@/lib/notify";
+
+/** Saving these may alert someone (new requirement, accepted quotation, project manager, action items). */
+const NOTIFY_ON_SAVE = ["requirements", "quotations", "projects", "meetings"];
 
 function sections(fields: Field[]) {
   const out: { name: string; fields: Field[] }[] = [];
@@ -150,10 +154,12 @@ export function EntityForm({
       if (!id && def.gstAware && !data.billingType) data.billingType = "gst";
       if (id) {
         await updateDoc(def.collection, id, data, initial);
+        if (NOTIFY_ON_SAVE.includes(def.collection)) setTimeout(() => notify("record.saved", id, { col: def.collection }), 1500);
         if (onSaved) onSaved(id);
         else router.push(`${def.basePath}/${id}`);
       } else {
         const newId = await createDoc(def.collection, data, def.code);
+        if (NOTIFY_ON_SAVE.includes(def.collection)) setTimeout(() => notify("record.saved", newId, { col: def.collection }), 1500);
         if (onSaved) onSaved(newId);
         else router.push(`${def.basePath}/${newId}`);
       }

@@ -12,6 +12,7 @@ import { openFile, saveFile } from "@/lib/files";
 import { requestApproval } from "@/lib/business";
 import { api } from "@/lib/api";
 import { DateInput } from "@/components/date-input";
+import { notify } from "@/lib/notify";
 
 async function decide(c: Doc, decision: "approve" | "reject", uid?: string) {
   const comment = decision === "reject" ? prompt("Reason for rejecting?") : "";
@@ -60,6 +61,7 @@ export default function ClaimsPage() {
       status: "approved",
     });
     await updateDoc("claims", c.id, { status: "paid", paidFromAccountId: acct.id, entryId }, c);
+    setTimeout(() => notify("claim.paid", c.id), 1500);
   }
 
   return (

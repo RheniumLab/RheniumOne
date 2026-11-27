@@ -57,6 +57,9 @@ async function driveToken() {
   add("files", await byField("files", "uid", m.uids));
   add("approvals", await byField("approvals", "requestedBy", m.uids));
   add("auditLog", await byField("auditLog", "uid", m.uids));
+  add("notifications", await byField("notifications", "to", m.uids));
+  add("notifications (sent by tests)", await byField("notifications", "by", m.uids));
+  add("pushTokens", await byField("pushTokens", "uid", m.uids));
   add("users", new Map(m.uids.map((u) => [`users/${u}`, adb.collection("users").doc(u)])));
   add("roles", new Map(m.roles.map((r) => [`roles/${r}`, adb.collection("roles").doc(r)])));
 

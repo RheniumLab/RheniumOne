@@ -194,7 +194,7 @@ function ClientLinks({ id }: { id: string }) {
   return (
     <div className="mb-4 space-y-4">
       {can("invoices", "view") && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="stat-row">
           <Stat label="Total billed" value={inr(billed)} />
           <Stat label="Total received (incl. TDS)" value={inr(received)} />
           <Stat label="Outstanding" value={inr(outstanding)} tone={outstanding > 0 ? "danger" : undefined} />
@@ -220,7 +220,7 @@ function VendorLinks({ id }: { id: string }) {
   const paid = bills.rows.reduce((s, b) => s + Number(b.paid || 0), 0);
   return (
     <div className="mb-4 space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stat-row">
         <Stat label="Purchase orders" value={pos.rows.length} />
         <Stat label="Paid to vendor" value={inr(paid)} />
         <Stat label="Amount payable" value={inr(payable)} tone={payable > 0 ? "danger" : undefined} />
@@ -270,7 +270,7 @@ function ItemLinks({ id }: { id: string }) {
   const itemPos = pos.rows.filter((p) => ((p.lines ?? []) as Record<string, unknown>[]).some((l) => l.itemId === id)).map((p) => ({ ...p, lines: ((p.lines ?? []) as Record<string, unknown>[]).filter((l) => l.itemId === id) }));
   return (
     <div className="mb-4 space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="stat-row">
         <Stat label="In stock" value={total} />
         {Object.entries(byLoc).map(([l, q]) => <Stat key={l} label={l} value={q} />)}
       </div>
@@ -301,7 +301,7 @@ function MeetingSnapshot({ data }: { data: D }) {
       {links.length > 0 && <div className="flex gap-2">{links}</div>}
       <details className="card p-4">
         <summary className="cursor-pointer text-sm font-semibold">Figures as on {new Date(snap.at).toLocaleDateString("en-IN")}{snap.includesNonGst ? " (incl. non-GST)" : " (GST only)"}</summary>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="stat-row mt-3">
           <Stat label="Cash position" value={inr(snap.cash.total)} />
           <Stat label="Receivables" value={inr(snap.receivables)} hint={`overdue ${inr(snap.overdueReceivables)}`} />
           <Stat label="Payables" value={inr(snap.payables)} />

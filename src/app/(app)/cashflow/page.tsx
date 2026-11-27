@@ -56,7 +56,7 @@ export default function CashFlowPage() {
         subtitle="Every rupee in or out, tagged to a project or the company"
         actions={(can("cashflow", "create") || can("custody", "create")) && <Link href="/cashflow/new" className="btn-primary"><Plus size={15} /> New entry</Link>}
       />
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="stat-row mb-4">
         <Stat label="Money in" value={inr(totIn)} />
         <Stat label="Money out" value={inr(totOut)} />
         <Stat label="Net" value={inr(totIn - totOut)} tone={totIn - totOut < 0 ? "danger" : "ok"} />

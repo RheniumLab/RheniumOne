@@ -59,6 +59,16 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if active() && request.resource.data.uid == request.auth.uid;
     }
+    // Notifications are written by the server (/api/notify); each person reads and marks their own.
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.to == request.auth.uid;
+      allow update: if signedIn() && resource.data.to == request.auth.uid && changedOnly(['read', 'readAt']);
+    }
+    // Devices registered for push alerts (read only by the server).
+    match /pushTokens/{token} {
+      allow create, update: if active() && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
     match /approvals/{id} {
       allow read: if active();
       allow create: if active() && request.resource.data.requestedBy == request.auth.uid && request.resource.data.status == 'pending';

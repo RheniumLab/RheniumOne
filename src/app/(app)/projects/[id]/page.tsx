@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { addDoc, collection, deleteDoc, doc, orderBy, serverTimestamp, updateDoc as fsUpdate, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, orderBy, serverTimestamp, setDoc, updateDoc as fsUpdate, where } from "firebase/firestore";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { EntityDetail } from "@/components/entity";
 import { LinkedRecords } from "@/components/conversions";
@@ -18,6 +18,7 @@ import { projectTransform } from "../transform";
 import { DocsPanel } from "@/components/docs-panel";
 import { invoiceDue } from "@/lib/money";
 import { DateInput } from "@/components/date-input";
+import { notify } from "@/lib/notify";
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -75,7 +76,7 @@ function MoneyView({ project, id }: { project: Record<string, unknown>; id: stri
   if (project.projectType === "Internal product") {
     const budget = Number(project.budget || 0);
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="stat-row">
         <Stat label="Development budget" value={inr(budget)} />
         <Stat label="Spent to date" value={inr(costs)} />
         <Stat label="Remaining" value={inr(budget - costs)} tone={budget - costs < 0 ? "danger" : "ok"} />
@@ -86,7 +87,7 @@ function MoneyView({ project, id }: { project: Record<string, unknown>; id: stri
   const value = Number(project.value || 0);
   const profit = received - costs;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+    <div className="stat-row">
       <Stat label="Quoted value" value={inr(value)} />
       <Stat label="Invoiced" value={inr(invoiced)} hint={value ? `${Math.round((invoiced / value) * 100)}% of value` : undefined} />
       <Stat label="Received" value={inr(received)} />
@@ -148,10 +149,15 @@ function Tasks({ projectId }: { projectId: string }) {
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    void addDoc(col(), { title, assignee: assignee || null, due: due || null, milestone: milestone || null, status: "todo", createdBy: user?.uid, createdAt: serverTimestamp() });
+    const ref = doc(col());
+    void setDoc(ref, { title, assignee: assignee || null, due: due || null, milestone: milestone || null, status: "todo", createdBy: user?.uid, createdAt: serverTimestamp() });
+    if (assignee) setTimeout(() => notify("task.assigned", projectId, { sub: ref.id }), 1500);
     setTitle(""); setDue("");
   }
-  const move = (t: Doc, status: string) => void fsUpdate(doc(col(), t.id), { status });
+  const move = (t: Doc, status: string) => {
+    void fsUpdate(doc(col(), t.id), { status });
+    if (status === "done" && t.status !== "done") setTimeout(() => notify("task.done", projectId, { sub: t.id }), 1500);
+  };
   const remove = (t: Doc) => confirm("Delete task?") && void deleteDoc(doc(col(), t.id));
   const overdue = (t: Doc) => t.status !== "done" && t.due && String(t.due) < new Date().toISOString().slice(0, 10);
   const meetings = useCollection("meetings", [where("projectId", "==", projectId)], { enabled: can("meetings", "view") }, [projectId]);

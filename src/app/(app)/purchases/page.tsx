@@ -24,7 +24,7 @@ export default function PurchasesPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Purchase orders & goods receipt" actions={can("purchases", "create") && <Link className="btn-primary" href="/purchases/new"><Plus size={15} /> New PO</Link>} />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stat-row">
         <Stat label="Open POs" value={open} />
         <Stat label="Payable to vendors" value={inr(payable)} />
         <Stat label="Overdue to vendors" value={inr(overdue)} tone={overdue > 0 ? "danger" : undefined} />
